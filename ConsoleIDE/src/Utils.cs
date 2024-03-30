@@ -29,4 +29,14 @@ public static class Utils
 
 		NCurses.MoveAddString(pos.Y, pos.X, str);
 	}
+
+	public static int CTRL(char c)
+	{
+		return CTRL((int) c);
+	}
+
+	public static int CTRL(int c)
+	{
+		return c & 0x1F;
+	}
 }

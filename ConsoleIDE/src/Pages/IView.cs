@@ -4,4 +4,6 @@ public interface IView
 {
 	void Update(ScreenReference screen);
 	void InitFrozens();
+
+	void RecieveKey(int key);
 }

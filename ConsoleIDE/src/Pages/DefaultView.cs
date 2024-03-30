@@ -24,4 +24,9 @@ public class DefaultView(ScreenReference screen) : IView
 
 		NCurses.MoveAddString(4, 0, new string('=', Utils.GetWindowWidth(screen)));
 	}
+
+	public void RecieveKey(int key)
+	{
+		
+	}
 }

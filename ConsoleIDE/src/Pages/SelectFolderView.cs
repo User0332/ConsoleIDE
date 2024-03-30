@@ -46,6 +46,11 @@ public class SelectFolderView(ScreenReference screen) : IView
 		);
 	}
 
+	public void RecieveKey(int key)
+	{
+		
+	}
+
 	public class GotoButton(Coordinate pos) : IButton
 	{
 		readonly Coordinate startPos = pos;

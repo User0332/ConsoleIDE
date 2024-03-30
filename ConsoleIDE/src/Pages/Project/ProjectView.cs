@@ -29,4 +29,12 @@ public class ProjectView : IView
 		fileEditor.Render();
 
 	}
+
+	public void RecieveKey(int key)
+	{
+		if (key == Utils.CTRL('e'))
+			fileEditor.ToggleEditingMode();
+		else
+			fileEditor.SendKey((char) key);
+	}
 }

@@ -47,4 +47,9 @@ public static class ViewDelegator
 	{
 		CurrentView.Update(screen);
 	}
+
+	public static void ProcessInput(int key)
+	{
+		CurrentView.RecieveKey(key);
+	}
 }

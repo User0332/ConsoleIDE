@@ -54,6 +54,9 @@ class IDEMain
 					}
 					catch (DotnetCursesException) { /* no events to catch */ }
 					break;
+				case int ch:
+					ViewDelegator.ProcessInput(ch);
+					break;
 			}
 
 			ClickDelegator.Delegate(mouseEvent);
