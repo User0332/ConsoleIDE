@@ -62,6 +62,8 @@ static class ClickDelegator
 	
 	public static void Register(IButton clickable)
 	{
+		if (CurrentPageClickables.Contains(clickable)) return;
+		
 		CurrentPageClickables.Add(clickable);
 	}
 

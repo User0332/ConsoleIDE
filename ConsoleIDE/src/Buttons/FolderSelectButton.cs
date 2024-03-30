@@ -29,13 +29,6 @@ public class FolderSelectButton : IButton
 	public void ExecuteAction(Coordinate mousePos)
 	{
 		ClickDelegator.Clear();
-
-		// if (Directory.GetCurrentDirectory().Contains("bin")) throw new Exception();
-
-		// File.AppendAllText("./debug.txt", $"{Directory.GetCurrentDirectory()}, {dir}\n");
-		
-
-
 		Directory.SetCurrentDirectory(dir);
 	}
 

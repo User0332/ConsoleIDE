@@ -14,7 +14,7 @@ public class ExitButton : IButton
 		bound = new(pos, pos.AddTo(Size));
 	}
 	
-	public ExitButton() : this(new(0, 0)) {}
+	public ExitButton() : this(new(Utils.GetWindowWidth(GlobalScreen.Screen)-Size.X, 0)) {}
 
 	public void Render(ScreenReference screen)
 	{

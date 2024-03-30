@@ -13,9 +13,7 @@ public class DefaultView : IView
 
 	public void InitFrozens()
 	{
-		ExitButton exitBtn = new(new(Utils.GetWindowWidth(screen)-ExitButton.Size.X, 0));
-
-		ClickDelegator.RegisterFrozen(exitBtn);
+		ClickDelegator.RegisterFrozen(new ExitButton());
 		ClickDelegator.RegisterFrozen(
 			new SelectFolderView.GotoButton(
 				new(0, 6)

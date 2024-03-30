@@ -51,11 +51,8 @@ public class SelectFolderView : IView
 
 	public void InitFrozens()
 	{
-		ExitButton exitBtn = new(new(Utils.GetWindowWidth(screen)-ExitButton.Size.X, 0));
-		BackButton backBtn = new(new(Utils.GetWindowWidth(screen)-ExitButton.Size.X-1-BackButton.Size.X, 0));
-		
-		ClickDelegator.RegisterFrozen(exitBtn);
-		ClickDelegator.RegisterFrozen(backBtn);
+		ClickDelegator.RegisterFrozen(new ExitButton());
+		ClickDelegator.RegisterFrozen(new BackButton());
 	}
 
 	public void Update(nint screen)
@@ -67,14 +64,24 @@ public class SelectFolderView : IView
 
 		if (Utils.GlobalYScroll < dirs.Count)
 		{
-			for (int i = Utils.GlobalYScroll; i < Math.Min(Utils.GlobalYScroll+Utils.GetWindowHeight(screen), dirs.Count); i++)
+			for (int i = Utils.GlobalYScroll; i < Math.Min(Utils.GlobalYScroll+Utils.GetWindowHeight(screen)-2, dirs.Count); i++)
 			{
 				ClickDelegator.Register(
 					new FolderSelectButton(
-						new(0, i), dirs[i]
+						new(0, i-Utils.GlobalYScroll+2), dirs[i]
 					)
 				);
 			}
 		}
+
+		ClickDelegator.Register(
+			new TextButton(
+				new(0, 0),
+				$"Select Current Folder ({Directory.GetCurrentDirectory()})",
+				(mousePos) => {
+					ViewDelegator.Push(new ProjectView(screen, Directory.GetCurrentDirectory()));
+				}
+			)
+		);
 	}
 }

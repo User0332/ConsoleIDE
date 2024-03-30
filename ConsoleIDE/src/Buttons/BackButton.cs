@@ -16,7 +16,7 @@ public class BackButton : IButton
 		bound = new(pos, pos.AddTo(Size));
 	}
 	
-	public BackButton() : this(new(0, 0)) {}
+	public BackButton() : this(new(Utils.GetWindowWidth(GlobalScreen.Screen)-ExitButton.Size.X-1-Size.X, 0)) {}
 
 	public void Render(ScreenReference screen)
 	{

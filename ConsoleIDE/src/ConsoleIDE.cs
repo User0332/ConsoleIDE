@@ -58,7 +58,7 @@ class IDEMain
 					catch (DotnetCursesException) { /* no events to catch */ }
 					break;
 			}
-			
+
 			ClickDelegator.Delegate(mouseEvent);
 			ViewDelegator.Render(screen);
 
