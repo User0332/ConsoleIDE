@@ -1,19 +1,17 @@
 using ConsoleIDE.Buttons;
 
-namespace ConsoleIDE.Pages;
+namespace ConsoleIDE.Pages.Project;
 
 public class ProjectView : IView
 {
 	readonly ScreenReference screen;
-	readonly string projectDir;
-	readonly string dirDispName;
+	readonly FileView fileEditor = new(new(50, 0), 10);
+	readonly DirectoryView fileExplorer;
 
 	public ProjectView(ScreenReference screen, string projectDir)
 	{
 		this.screen = screen;
-		this.projectDir = projectDir;
-		
-		dirDispName = $"{new DirectoryInfo(projectDir).Name}/";
+		fileExplorer = new(new(0, 0), projectDir, Utils.GetWindowWidth(screen), screen, fileEditor.ChangeTo);
 	}
 
 	public void InitFrozens()
@@ -24,6 +22,10 @@ public class ProjectView : IView
 	
 	public void Update(ScreenReference screen)
 	{
-		NCurses.MoveAddString(0, 0, dirDispName);
+		ClickDelegator.ClearKeepScreen();
+
+		fileExplorer.Render();
+		fileEditor.Render();
+
 	}
 }

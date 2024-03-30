@@ -35,35 +35,32 @@ static class ClickDelegator
 
 	public static void Delegate(MouseEvent ev)
 	{
-		try
+		NCurses.Erase();
+
+		foreach (IButton btn in CurrentPageClickables.Concat(FrozenClickables).ToArray()) // .ToArray() to copy in case collection is modified during iter
 		{
-			foreach (IButton btn in CurrentPageClickables.Concat(FrozenClickables))
+			btn.Render(screen);
+
+			if (!btn.BoundingBox.Contains(ev.x, ev.y)) continue;
+
+			
+			if ((ev.bstate & EventType.BUTTON1_CLICKED) != 0)
 			{
-				btn.Render(screen);
-
-				if (!btn.BoundingBox.Contains(ev.x, ev.y)) continue;
-
-				
-				if ((ev.bstate & EventType.BUTTON1_CLICKED) != 0)
-				{
-					btn.ExecuteAction(new(ev.x, ev.y));
-				}
-				else if ((ev.bstate & EventType.BUTTON2_CLICKED) != 0)
-				{
-					btn.ExecuteSecondaryAction(new(ev.x, ev.y));
-				}
-				else if ((ev.bstate & EventType.REPORT_MOUSE_POSITION) != 0)
-				{
-					btn.HoverUpdate(screen);
-				}
+				btn.ExecuteAction(new(ev.x, ev.y));
 			}
-		} catch (InvalidOperationException) {} // if this is changed during iteration, it was cleared so don't bother going through the rest of the buttons
+			else if ((ev.bstate & EventType.BUTTON2_CLICKED) != 0)
+			{
+				btn.ExecuteSecondaryAction(new(ev.x, ev.y));
+			}
+			else if ((ev.bstate & EventType.REPORT_MOUSE_POSITION) != 0)
+			{
+				btn.HoverUpdate(screen);
+			}
+		}
 	}
 	
 	public static void Register(IButton clickable)
 	{
-		if (CurrentPageClickables.Contains(clickable)) return;
-		
 		CurrentPageClickables.Add(clickable);
 	}
 
@@ -74,13 +71,20 @@ static class ClickDelegator
 
 	public static void Clear()
 	{
-		NCurses.Clear();
+		NCurses.Erase();
+
+		ClearKeepScreen();
+	}
+
+	public static void ClearKeepScreen()
+	{
 		CurrentPageClickables.Clear();
 	}
 
 	public static void ClearFrozen()
 	{
-		NCurses.Clear();
+		NCurses.Erase();
+
 		FrozenClickables.Clear();
 	}
 }

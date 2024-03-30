@@ -16,7 +16,9 @@ class IDEMain
 		NCurses.StartColor();
 		NCurses.ScrollOk(screen, true);
 		NCurses.NoDelay(screen, true);
-		NCurses.NoEcho(); 
+		NCurses.NoEcho();
+		
+ // hide cursor
 
 		ClickDelegator.Init(screen);
 		ViewDelegator.Init(screen);
@@ -24,9 +26,6 @@ class IDEMain
 		Console.CancelKeyPress += (object? sender, ConsoleCancelEventArgs e) => {
 			ClickDelegator.Quit();
 		};
-
-		NCurses.NoEcho();
-		// NCurses.Raw();
 
 		MouseEvent mouseEvent = new()
 		{
@@ -37,8 +36,6 @@ class IDEMain
 
 		while (true)
 		{
-			// NCurses.Clear();
-
 			switch (NCurses.GetChar())
 			{
 				case -1: break;

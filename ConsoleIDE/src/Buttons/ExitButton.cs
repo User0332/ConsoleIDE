@@ -1,19 +1,13 @@
 namespace ConsoleIDE.Buttons;
 
-public class ExitButton : IButton
+public class ExitButton(Coordinate pos) : IButton
 {
-	readonly Coordinate startPos;
-	readonly ClickableBound bound;
+	readonly Coordinate startPos = pos;
+	readonly ClickableBound bound = new(pos, pos.AddTo(Size));
 
 	public static readonly Coordinate Size = new(3, 1);
 	public ClickableBound BoundingBox => bound;
 
-	public ExitButton(Coordinate pos)
-	{
-		startPos = pos;	
-		bound = new(pos, pos.AddTo(Size));
-	}
-	
 	public ExitButton() : this(new(Utils.GetWindowWidth(GlobalScreen.Screen)-Size.X, 0)) {}
 
 	public void Render(ScreenReference screen)

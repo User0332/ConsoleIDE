@@ -19,7 +19,8 @@ public static class ViewDelegator
 
 	public static void Push(IView newView)
 	{
-		NCurses.Clear();
+		NCurses.Erase();
+
 		ClickDelegator.Clear();
 		ClickDelegator.ClearFrozen();
 
@@ -32,7 +33,8 @@ public static class ViewDelegator
 
 	public static void Pop()
 	{
-		NCurses.Clear();
+		NCurses.Erase();
+
 		ClickDelegator.Clear();
 		ClickDelegator.ClearFrozen();
 		

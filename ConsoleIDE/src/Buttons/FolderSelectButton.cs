@@ -1,19 +1,12 @@
 namespace ConsoleIDE.Buttons;
 
-public class FolderSelectButton : IButton
+public class FolderSelectButton(Coordinate pos, string dir) : IButton
 {
-	readonly Coordinate startPos;
-	readonly ClickableBound bound;
-	readonly string dir;
+	readonly Coordinate startPos = pos;
+	readonly ClickableBound bound = new(pos, pos.AddTo(new(dir.Length + 3, 1)));
+	readonly string dir = dir;
 	public ClickableBound BoundingBox => bound;
 
-	public FolderSelectButton(Coordinate pos, string dir)
-	{
-		startPos = pos;	
-		bound = new(pos, pos.AddTo(new(dir.Length+3, 1)));
-		this.dir = dir;
-	}
-	
 	public FolderSelectButton(string dir) : this(new(0, 0), dir) {}
 
 	public void Render(ScreenReference screen)

@@ -1,53 +1,12 @@
 using ConsoleIDE.Buttons;
 using ConsoleIDE.Delegators;
+using ConsoleIDE.Pages.Project;
 
 namespace ConsoleIDE.Pages;
 
-public class SelectFolderView : IView
+public class SelectFolderView(ScreenReference screen) : IView
 {
-	public class GotoButton : IButton
-	{
-		readonly Coordinate startPos;
-		readonly ClickableBound bound;
-		
-		public static readonly Coordinate Size = new(23, 1);
-		public ClickableBound BoundingBox => bound;
-
-		public GotoButton(Coordinate pos)
-		{
-			startPos = pos;	
-			bound = new(pos, pos.AddTo(Size));
-		}
-		
-		public GotoButton() : this(new(0, 0)) {}
-
-		public void Render(ScreenReference screen)
-		{
-			NCurses.MoveAddString(startPos.Y, startPos.X, "[Select Project Folder]");
-		}
-		
-		public void HoverUpdate(ScreenReference screen)
-		{
-			
-		}
-
-		public void ExecuteAction(Coordinate mousePos)
-		{
-			ViewDelegator.Push(new SelectFolderView(GlobalScreen.Screen));
-		}
-
-		public void ExecuteSecondaryAction(Coordinate mousePos)
-		{
-			
-		}
-	}
-
-	readonly ScreenReference screen;
-
-	public SelectFolderView(ScreenReference screen)
-	{
-		this.screen = screen;
-	}
+	readonly ScreenReference screen = screen;
 
 	public void InitFrozens()
 	{
@@ -57,6 +16,8 @@ public class SelectFolderView : IView
 
 	public void Update(nint screen)
 	{
+		ClickDelegator.ClearKeepScreen();
+
 		var dirs = Directory.GetDirectories("./").ToList();
 		
 		dirs.Add("..");
@@ -83,5 +44,36 @@ public class SelectFolderView : IView
 				}
 			)
 		);
+	}
+
+	public class GotoButton(Coordinate pos) : IButton
+	{
+		readonly Coordinate startPos = pos;
+		readonly ClickableBound bound = new(pos, pos.AddTo(Size));
+		
+		public static readonly Coordinate Size = new(23, 1);
+		public ClickableBound BoundingBox => bound;
+
+		public GotoButton() : this(new(0, 0)) {}
+
+		public void Render(ScreenReference screen)
+		{
+			NCurses.MoveAddString(startPos.Y, startPos.X, "[Select Project Folder]");
+		}
+		
+		public void HoverUpdate(ScreenReference screen)
+		{
+			
+		}
+
+		public void ExecuteAction(Coordinate mousePos)
+		{
+			ViewDelegator.Push(new SelectFolderView(GlobalScreen.Screen));
+		}
+
+		public void ExecuteSecondaryAction(Coordinate mousePos)
+		{
+			
+		}
 	}
 }

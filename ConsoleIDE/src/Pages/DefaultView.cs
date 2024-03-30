@@ -2,14 +2,9 @@ using ConsoleIDE.Buttons;
 
 namespace ConsoleIDE.Pages;
 
-public class DefaultView : IView
+public class DefaultView(ScreenReference screen) : IView
 {
-	readonly ScreenReference screen;
-
-	public DefaultView(ScreenReference screen)
-	{
-		this.screen = screen;
-	}
+	readonly ScreenReference screen = screen;
 
 	public void InitFrozens()
 	{

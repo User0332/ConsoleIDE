@@ -1,15 +1,15 @@
 namespace ConsoleIDE.Buttons;
 
-public class TextButton(Coordinate pos, string text, Action<Coordinate> action, Action<Coordinate> secondaryAction) : IButton
+public class PureTextButton(Coordinate pos, string text, Action<Coordinate> action, Action<Coordinate> secondaryAction) : IButton
 {
 	readonly Coordinate startPos = pos;
-	readonly ClickableBound bound = new(pos, pos.AddTo(new(text.Length + 2, 1)));
+	readonly ClickableBound bound = new(pos, pos.AddTo(new(text.Length, 1)));
 	readonly Action<Coordinate> action = action;
 	readonly Action<Coordinate> secondaryAction = secondaryAction;
-	readonly string text = $"[{text}]";
+	readonly string text = text;
 	public ClickableBound BoundingBox => bound;
 
-	public TextButton(Coordinate pos, string text, Action<Coordinate> action)
+	public PureTextButton(Coordinate pos, string text, Action<Coordinate> action)
 		: this(pos, text, action, (coord) => {}) {}
 
 	public void Render(ScreenReference screen)

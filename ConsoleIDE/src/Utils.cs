@@ -22,4 +22,11 @@ public static class Utils
 	{
 		return GetWindowSize(screen).X;
 	}
+
+	public static void AddStr(Coordinate pos, string str)
+	{
+		if ((pos.Y >= GetWindowHeight(GlobalScreen.Screen)) || ((pos.X+str.Length) >= GetWindowWidth(GlobalScreen.Screen))) return;
+
+		NCurses.MoveAddString(pos.Y, pos.X, str);
+	}
 }
