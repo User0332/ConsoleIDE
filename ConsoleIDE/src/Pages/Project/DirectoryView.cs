@@ -2,18 +2,29 @@ using ConsoleIDE.Buttons;
 
 namespace ConsoleIDE.Pages.Project;
 
-public class DirectoryView(Coordinate pos, string dir, int maxWidth, ScreenReference screen, Action<FileInfo> onFileSelect)
+public class DirectoryView(Coordinate pos, string dir, int widthBound, ScreenReference screen, Action<FileInfo> onFileSelect)
 {
 	readonly Coordinate pos = pos;
 	readonly DirectoryInfo baseDir = new(dir);
 	readonly List<string> openDirs = [];
-	readonly int maxWidth = maxWidth;
 	readonly ScreenReference screen = screen;
 	readonly Action<FileInfo> fileSelect = onFileSelect;
+	public int WidthBound = widthBound;
 
 	public void Render()
 	{
 		RecurseDir(baseDir, pos);
+		DrawBar();
+	}
+
+	void DrawBar()
+	{
+		int height = Utils.GetWindowHeight(screen);
+
+		for (int i = 0; i < height; i++)
+		{
+			NCurses.MoveAddChar(i, WidthBound, '|');
+		}
 	}
 
 	int RecurseDir(DirectoryInfo dir, Coordinate startPos)
@@ -23,7 +34,7 @@ public class DirectoryView(Coordinate pos, string dir, int maxWidth, ScreenRefer
 		ClickDelegator.Register(
 			new PureTextButton(
 				startPos,
-				GetDisplayName(dir),
+				GetDisplayName(dir, startPos),
 				(mousePos) => {
 					if (openDirs.Contains(dir.FullName))
 						openDirs.Remove(dir.FullName); // do we need to optimize?
@@ -33,7 +44,7 @@ public class DirectoryView(Coordinate pos, string dir, int maxWidth, ScreenRefer
 			)
 		);
 
-		startPos = startPos.AddTo(new(2, 1)); // indent on x axis and inc on y axis for use of one line above
+		startPos = startPos.AddTo(new(1, 1)); // indent on x axis and inc on y axis for use of one line above
 
 		if (!openDirs.Contains(dir.FullName)) return startPos.Y;
 
@@ -46,10 +57,12 @@ public class DirectoryView(Coordinate pos, string dir, int maxWidth, ScreenRefer
 
 		foreach (var file in dir.GetFiles())
 		{
+			string dispName = GetDisplayName(file, startPos);
+
 			ClickDelegator.Register(
 				new PureTextButton(
 					startPos,
-					GetDisplayName(file),
+					GetDisplayName(file, startPos),
 					(mousePos) => fileSelect(file)
 					
 				)
@@ -62,16 +75,33 @@ public class DirectoryView(Coordinate pos, string dir, int maxWidth, ScreenRefer
 	}
 
 
-	string GetDisplayName(DirectoryInfo dir)
+	string GetDisplayName(DirectoryInfo dir, Coordinate pos)
 	{
-		if (openDirs.Contains(dir.FullName))
-			return $"v {dir.Name}/";
-	
-		return $"> {dir.Name}/";
+		int maxWidth = WidthBound-pos.X-1;
+
+		if (maxWidth <= 0) return "";
+
+		string dispName = openDirs.Contains(dir.FullName) ? $"v {dir.Name}/" : $"> {dir.Name}/";
+
+		if (dispName.Length <= maxWidth) return dispName;
+
+		dispName = dispName[..Math.Max(0, maxWidth-4)]+".../";
+
+		return dispName;
 	}
 
-	static string GetDisplayName(FileInfo file)
+	string GetDisplayName(FileInfo file, Coordinate pos)
 	{
-		return file.Name;
+		int maxWidth = WidthBound-pos.X-1;
+
+		if (maxWidth <= 0) return "";
+
+		string dispName = file.Name;
+
+		if (dispName.Length <= maxWidth) return dispName;
+
+		dispName = dispName[..Math.Max(0, maxWidth-3)]+"...";
+		
+		return dispName;
 	}
 }
