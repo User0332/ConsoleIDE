@@ -14,18 +14,14 @@ class IDEMain
 		GlobalScreen.Screen = screen;
 
 		NCurses.StartColor();
-		NCurses.ScrollOk(screen, true);
+		NCurses.SetCursor(0);
 		NCurses.NoDelay(screen, true);
 		NCurses.NoEcho();
+		NCurses.Raw();
 		
- // hide cursor
 
 		ClickDelegator.Init(screen);
 		ViewDelegator.Init(screen);
-
-		Console.CancelKeyPress += (object? sender, ConsoleCancelEventArgs e) => {
-			ClickDelegator.Quit();
-		};
 
 		MouseEvent mouseEvent = new()
 		{
@@ -64,5 +60,8 @@ class IDEMain
 
 			NCurses.Refresh();
 		}
+
+		NCurses.EndWin();
+		ClickDelegator.Quit();
 	}
 }

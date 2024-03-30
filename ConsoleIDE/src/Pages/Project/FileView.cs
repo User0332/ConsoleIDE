@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using ConsoleIDE.Buttons;
 
 namespace ConsoleIDE.Pages.Project;
@@ -6,11 +7,39 @@ public class FileView(Coordinate pos, int widthBound)
 {
 	readonly Coordinate pos = pos;
 	FileInfo? currentFile;
-	string[] currLines = Array.Empty<string>();
+	List<string> currLines = [];
 	bool editing = false;
+	bool saved = true;
 	int editingYIndex;
 	int editingXIndex;
 	public int WidthBound = widthBound;
+
+	int CurrentLineRealMaxIdx
+	{
+		get => currLines[editingYIndex].Length;
+	}
+
+	int EditingDisplayXIndex
+	{
+		get {
+			string currLine = currLines[editingYIndex];
+
+			int displayIndex = 0;
+
+			for (int i = 0; i < editingXIndex; i++)
+			{
+				if (currLine[i] == '\t')
+				{
+					displayIndex+=4; // tab_size=4
+					continue;
+				}
+
+				displayIndex+=1;
+			}
+
+			return displayIndex;
+		}
+	}
 
 	public void Render()
 	{
@@ -20,7 +49,8 @@ public class FileView(Coordinate pos, int widthBound)
 			return;
 		}
 
-		string editingMessage = editing ? "[editing]" : "[viewing]";
+		string editingMessage = editing ? "[editing] " : "[viewing] ";
+		editingMessage+=saved ? "[saved]" : "[unsaved]";
 
 		AddStr(pos, $"{currentFile.Name} ({currentFile.FullName}) {editingMessage}");
 		AddStr(pos.AddY(1), new string('_', WidthBound-pos.X));
@@ -29,11 +59,11 @@ public class FileView(Coordinate pos, int widthBound)
 
 		NCurses.Move(
 			editingYIndex+3,
-			editingXIndex+pos.X
-			);
+			EditingDisplayXIndex+pos.X
+		);
 	}
 
-	string[] DisplayFileContents(Coordinate pos)
+	List<string> DisplayFileContents(Coordinate pos)
 	{
 		foreach (var line in currLines)
 		{
@@ -49,18 +79,32 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		if (currentFile is null) return;
 
+		if (key == Utils.CTRL('e'))
+		{
+			ToggleEditingMode();
+			
+			return;
+		}
+
+		if (key == Utils.CTRL('s'))
+		{
+			saved = true;
+			File.WriteAllLines(currentFile.FullName, [.. currLines]);
+			return;
+		}
+
 		if (key == CursesKey.UP)
 		{
 			editingYIndex = Math.Max(editingYIndex-1, 0);
-			editingXIndex = Math.Min(editingXIndex, CurrentLineMaxIdx);
+			editingXIndex = Math.Min(editingXIndex, CurrentLineRealMaxIdx);
 		
 			return;
 		}
 		
 		if (key == CursesKey.DOWN)
 		{
-			editingYIndex = Math.Min(editingYIndex+1, currLines.Length-1);
-			editingXIndex = Math.Min(editingXIndex, CurrentLineMaxIdx);
+			editingYIndex = Math.Min(editingYIndex+1, currLines.Count-1);
+			editingXIndex = Math.Min(editingXIndex, CurrentLineRealMaxIdx);
 			
 			return;
 		}
@@ -72,7 +116,7 @@ public class FileView(Coordinate pos, int widthBound)
 				if (editingYIndex == 0) return;
 
 				editingYIndex-=1;
-				editingXIndex =CurrentLineMaxIdx;
+				editingXIndex = CurrentLineRealMaxIdx;
 
 				return;
 			}
@@ -84,9 +128,9 @@ public class FileView(Coordinate pos, int widthBound)
 
 		if (key == CursesKey.RIGHT)
 		{
-			if (editingXIndex == CurrentLineMaxIdx)
+			if (editingXIndex == CurrentLineRealMaxIdx)
 			{
-				if (editingYIndex == currLines.Length-1) return;
+				if (editingYIndex == currLines.Count-1) return;
 
 				editingYIndex+=1;
 				editingXIndex = 0;
@@ -101,24 +145,60 @@ public class FileView(Coordinate pos, int widthBound)
 		
 		if (!editing) return;
 
-		currLines[editingYIndex] = currLines[editingYIndex].Insert(editingXIndex-(4*currLines[editingYIndex].Count(ch => ch == '\t')), char.ConvertFromUtf32(key)); // xidx-(3*currLines[editingYIndex].Count(ch => ch == '\t')) because we made the index count tabs as 4 chars (3 chars more)
+		saved = false;
 
-	}
+		if (key == CursesKey.BACKSPACE)
+		{
+			if (editingXIndex == 0)
+			{
+				if (editingYIndex == 0) return;
+				
+				SendKey(CursesKey.LEFT);
 
-	int CurrentLineMaxIdx
-	{
-		get => Math.Max(0, currLines[editingYIndex].Replace("\t", "    ").Length-1);
+				currLines[editingYIndex] = currLines[editingYIndex]+currLines[editingYIndex+1];
+				currLines.RemoveAt(editingYIndex+1);
+
+				return;
+			}
+
+			SendKey(CursesKey.LEFT);
+
+			currLines[editingYIndex] = currLines[editingYIndex].Remove(editingXIndex, 1);
+
+			return;
+		}
+
+		if (key == '\n')
+		{
+			string slicedText = currLines[editingYIndex][editingXIndex..];
+			string leftText = currLines[editingYIndex][..editingXIndex];
+
+			currLines[editingYIndex] = leftText;
+
+			currLines.Insert(editingYIndex+1, slicedText);
+			
+			editingYIndex+=1;
+			editingXIndex = 0;
+
+			return;
+		}
+
+		currLines[editingYIndex] = currLines[editingYIndex].Insert(editingXIndex, char.ConvertFromUtf32(key));
+
+		SendKey(CursesKey.RIGHT);
 	}
 
 	public void ToggleEditingMode()
 	{
 		editing = !editing;
+
+		NCurses.SetCursor(editing ? 1 : 0);
 	}
 
 	public void ChangeTo(FileInfo file)
 	{
 		currentFile = file;
-		currLines = File.ReadAllLines(file.FullName);
+		currLines = [.. File.ReadAllLines(file.FullName)];
 	}
 
 	void AddStr(Coordinate pos, string message)

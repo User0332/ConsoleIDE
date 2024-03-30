@@ -32,9 +32,6 @@ public class ProjectView : IView
 
 	public void RecieveKey(int key)
 	{
-		if (key == Utils.CTRL('e'))
-			fileEditor.ToggleEditingMode();
-		else
-			fileEditor.SendKey((char) key);
+		fileEditor.SendKey((char) key);
 	}
 }

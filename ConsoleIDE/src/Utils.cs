@@ -6,6 +6,8 @@ public static class Utils
 {
 	public static int GlobalYScroll = 0;
 
+	public static readonly string FieldAddedFromConsoleIDE = "let's goooo";
+
 	public static Coordinate GetWindowSize(ScreenReference screen)
 	{
 		NCurses.GetMaxYX(screen, out int y, out int x);
