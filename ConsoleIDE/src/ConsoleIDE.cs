@@ -60,8 +60,5 @@ class IDEMain
 
 			NCurses.Refresh();
 		}
-
-		NCurses.EndWin();
-		ClickDelegator.Quit();
 	}
 }

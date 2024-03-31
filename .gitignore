@@ -1,3 +1,4 @@
 obj/
 bin/
 ConsoleIDE.sln
+*.swp

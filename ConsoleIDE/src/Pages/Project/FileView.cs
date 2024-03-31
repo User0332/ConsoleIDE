@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using ConsoleIDE.Buttons;
 
 namespace ConsoleIDE.Pages.Project;
@@ -6,12 +5,15 @@ namespace ConsoleIDE.Pages.Project;
 public class FileView(Coordinate pos, int widthBound)
 {
 	readonly Coordinate pos = pos;
+	readonly List<(List<string> lines, int editingYIndex, int editingXIndex)> undos = [];
+	readonly List<(List<string> lines, int editingYIndex, int editingXIndex)> redos = [];
 	FileInfo? currentFile;
 	List<string> currLines = [];
 	bool editing = false;
 	bool saved = true;
 	int editingYIndex;
 	int editingXIndex;
+	int secSinceLastChange = DateTime.Now.Second;
 	public int WidthBound = widthBound;
 
 	int CurrentLineRealMaxIdx
@@ -89,9 +91,14 @@ public class FileView(Coordinate pos, int widthBound)
 		if (key == Utils.CTRL('s'))
 		{
 			saved = true;
+
+			PushChange();
+			
 			File.WriteAllLines(currentFile.FullName, [.. currLines]);
 			return;
 		}
+
+		if (!editing) return;
 
 		if (key == CursesKey.UP)
 		{
@@ -142,10 +149,22 @@ public class FileView(Coordinate pos, int widthBound)
 			
 			return;
 		}
-		
-		if (!editing) return;
 
-		saved = false;
+		saved = false; // anything past this will edit the file
+
+		if (key == Utils.CTRL('z'))
+		{
+			TryPopChange();
+			return;
+		}
+
+		if (key == Utils.CTRL('y'))
+		{
+			TryRedo();
+			return;
+		}
+
+		if (redos.Count != 0) redos.Clear();
 
 		if (key == CursesKey.BACKSPACE)
 		{
@@ -157,6 +176,8 @@ public class FileView(Coordinate pos, int widthBound)
 
 				currLines[editingYIndex] = currLines[editingYIndex]+currLines[editingYIndex+1];
 				currLines.RemoveAt(editingYIndex+1);
+
+				PushChange();
 
 				return;
 			}
@@ -180,12 +201,55 @@ public class FileView(Coordinate pos, int widthBound)
 			editingYIndex+=1;
 			editingXIndex = 0;
 
+			PushChange();
+
 			return;
 		}
 
 		currLines[editingYIndex] = currLines[editingYIndex].Insert(editingXIndex, char.ConvertFromUtf32(key));
 
+		if ((DateTime.Now.Second - secSinceLastChange) >= 30) PushChange();
+
 		SendKey(CursesKey.RIGHT);
+	}
+
+	public void PushChange()
+	{
+		if (!undos[^1].lines.SequenceEqual(currLines)) // has a change been made?
+		{
+			undos.Add(([..currLines], editingXIndex, editingYIndex));
+
+			if (undos.Count > 30)
+			{
+				undos.RemoveAt(0);
+			}
+		}
+
+		secSinceLastChange = DateTime.Now.Second;
+	}
+
+	public void TryPopChange()
+	{
+		if (undos.Count == 0) return;
+
+		redos.Add(([..currLines], editingXIndex, editingYIndex));
+
+		(currLines, editingXIndex, editingYIndex) = undos[^1];
+
+		if (undos.Count == 1) return;
+
+		undos.RemoveAt(undos.Count-1);
+	}
+
+	public void TryRedo()
+	{
+		if (redos.Count == 0) return;
+
+		(currLines, editingXIndex, editingYIndex) = redos[^1];
+
+		undos.Add(([..currLines], editingXIndex, editingYIndex));
+
+		redos.RemoveAt(redos.Count-1);		
 	}
 
 	public void ToggleEditingMode()
@@ -199,6 +263,9 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		currentFile = file;
 		currLines = [.. File.ReadAllLines(file.FullName)];
+
+		undos.Clear();
+		undos.Add(([..currLines], editingXIndex, editingYIndex));
 	}
 
 	void AddStr(Coordinate pos, string message)
