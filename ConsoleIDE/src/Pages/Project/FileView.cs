@@ -3,7 +3,7 @@ using CursorPair = (ConsoleIDE.Pages.Project.EditingIndex controlling, ConsoleID
 
 namespace ConsoleIDE.Pages.Project;
 
-#pragma warning disable CS0660, 0661
+#pragma warning disable CS0660, CS0661
 class EditingIndex(bool enabled)
 {
 	public readonly bool Enabled = enabled;
@@ -36,11 +36,11 @@ class EditingIndex(bool enabled)
 	}
 }
 
-#pragma warning restore CS0660, 0661
+#pragma warning restore CS0660, CS0661
 
 public class FileView(Coordinate pos, int widthBound)
 {
-	readonly Coordinate pos = pos;
+	readonly Coordinate viewPos = pos;
 	readonly List<(List<string> lines, CursorPair)> undos = [];
 	readonly List<(List<string> lines, CursorPair)> redos = [];
 	readonly List<CursorPair> cursors = [];
@@ -49,11 +49,17 @@ public class FileView(Coordinate pos, int widthBound)
 	bool editing = false;
 	bool saved = true;
 	int secSinceLastChange = DateTime.Now.Second;
+	int yScroll;
 	public int WidthBound = widthBound;
 
 	int CurrentLineRealMaxIdx
 	{
 		get => currLines[cursors[0].controlling.Y].Length;
+	}
+
+	int LongestLineNoLength
+	{
+		get => currLines.Count.ToString().Length;
 	}
 
 	int GetEditingDisplayXIndex(EditingIndex cursor)
@@ -80,21 +86,26 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		if (currentFile is null)
 		{
-			AddStr(pos, "No File Selected!");
+			AddStr(viewPos, "No File Selected!");
 			return;
 		}
 
 		string editingMessage = editing ? "[editing] " : "[viewing] ";
 		editingMessage+=saved ? "[saved]" : "[unsaved]";
 
-		AddStr(pos, $"{currentFile.Name} ({currentFile.FullName}) {editingMessage}");
-		AddStr(pos.AddY(1), new string('_', WidthBound-pos.X));
+		AddStr(viewPos, $"{currentFile.Name} ({currentFile.FullName}) {editingMessage}");
+		AddStr(viewPos.AddY(1), new string('_', WidthBound-viewPos.X));
 
-		DisplayFileContents(pos.AddY(3));
+		DisplayFileContents(viewPos.AddY(3));
 
-		foreach (CursorPair cursorPair in cursors)
+		if (editing)
 		{
-			DisplayCursorPair(cursorPair);
+			foreach (CursorPair cursorPair in cursors)
+			{
+				DisplayCursorPair(cursorPair);
+			}
+
+			NCurses.SetCursor(0);
 		}
 	}
 
@@ -104,12 +115,10 @@ public class FileView(Coordinate pos, int widthBound)
 		{
 			Utils.MoveChangeAttr(
 				cursorPair.controlling.Y+3,
-				GetEditingDisplayXIndex(cursorPair.controlling)+pos.X,
+				GetEditingDisplayXIndex(cursorPair.controlling)+viewPos.X+LongestLineNoLength,
 				1,
 				CursesAttribute.REVERSE
 			);
-
-			NCurses.SetCursor(0);
 
 			return;
 		}
@@ -128,33 +137,65 @@ public class FileView(Coordinate pos, int widthBound)
 			end = cursorPair.notControlling;
 		}
 
-		// NCurses.Move(
-		// 	begin.Y+3,
-		// 	GetEditingDisplayXIndex(begin)+pos.X
-		// );
-		// NCurses.AttributeSet(CursesAttribute.REVERSE);
+		for (int i = begin.Y; i < end.Y; i++)
+		{
+			Utils.MoveChangeAttr(
+				i+3,
+				0+viewPos.X,
+				currLines[i].Length,
+				CursesAttribute.REVERSE
+			);
+		}
 
 
+		Utils.MoveChangeAttr(
+			end.Y+3,
+			GetEditingDisplayXIndex(end)+viewPos.X+LongestLineNoLength,
+			currLines[end.Y][..end.X].Length,
+			CursesAttribute.REVERSE
+		);
 
-
-		// NCurses.Move(
-		// 	end.Y+3,
-		// 	GetEditingDisplayXIndex(end)+pos.X
-		// );
-		// NCurses.AttributeSet(CursesAttribute.REVERSE);
-
+		Utils.MoveChangeAttr(
+			begin.Y+3,
+			GetEditingDisplayXIndex(end)+viewPos.X+LongestLineNoLength,
+			currLines[begin.Y][begin.X..].Length,
+			CursesAttribute.REVERSE
+		);
 	}
 
-	List<string> DisplayFileContents(Coordinate pos)
+	void DisplayFileContents(Coordinate pos)
 	{
-		foreach (var line in currLines)
+		for (int i = yScroll; i < currLines.Count; i++)
 		{
-			AddStr(pos, line.Replace("\t", "    "));
+			string lineNo = (i+1).ToString();
+
+			NCurses.AttributeOn(Utils.COLOR_PAIR(1));
+			AddStr(pos, lineNo);
+			NCurses.AttributeOff(Utils.COLOR_PAIR(1));
+			// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
+
+			AddStr(pos.AddX(LongestLineNoLength+1), currLines[i].Replace("\t", "    "));
 			
 			pos = pos.AddY(1);
 		}
+	}
 
-		return currLines;
+	public void SendMouseEvent(MouseEvent ev)
+	{
+		if (currentFile is null) return;
+
+		if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_UP))
+		{
+			yScroll = Math.Max(0, yScroll-1);
+
+			return;
+		}
+		else if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_DOWN))
+		{
+			yScroll = Math.Min(Math.Max(0, currLines.Count-(Utils.GetWindowHeight(GlobalScreen.Screen)-4)), yScroll+1);
+		
+			return;
+		}
 	}
 
 	public void SendKey(int key)
@@ -230,8 +271,6 @@ public class FileView(Coordinate pos, int widthBound)
 			return;
 		}
 
-		saved = false; // anything past this will edit the file
-
 		if (key == Utils.CTRL('z'))
 		{
 			TryPopChange();
@@ -243,6 +282,8 @@ public class FileView(Coordinate pos, int widthBound)
 			TryRedo();
 			return;
 		}
+
+		saved = false; // anything past this will edit the file
 
 		if (redos.Count != 0) redos.Clear();
 
@@ -288,7 +329,7 @@ public class FileView(Coordinate pos, int widthBound)
 
 		currLines[cursors[0].controlling.Y] = currLines[cursors[0].controlling.Y].Insert(cursors[0].controlling.X, char.ConvertFromUtf32(key));
 
-		if ((DateTime.Now.Second - secSinceLastChange) >= 30) PushChange();
+		if ((DateTime.Now.Second - secSinceLastChange) >= 20) PushChange();
 
 		SendKey(CursesKey.RIGHT);
 	}
@@ -312,6 +353,8 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		if (undos.Count == 0) return;
 
+		saved = false;
+
 		redos.Add(([..currLines], cursors[0]));
 
 		cursors.Clear();
@@ -327,6 +370,8 @@ public class FileView(Coordinate pos, int widthBound)
 	public void TryRedo()
 	{
 		if (redos.Count == 0) return;
+
+		saved = false;
 
 		undos.Add(([..currLines], cursors[0]));
 		
@@ -347,6 +392,8 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		currentFile = file;
 		currLines = [.. File.ReadAllLines(file.FullName)];
+
+		yScroll = 0;
 
 		cursors.Clear();
 		cursors.Add((new EditingIndex(true), new(false)));

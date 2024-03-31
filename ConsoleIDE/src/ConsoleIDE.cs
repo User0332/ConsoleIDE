@@ -18,6 +18,10 @@ class IDEMain
 		NCurses.NoDelay(screen, true);
 		NCurses.NoEcho();
 		NCurses.Raw();
+
+
+		NCurses.InitColor(10,500, 500, 500); // gray
+		NCurses.InitPair(1, 10, CursesColor.BLACK);
 		
 
 		ClickDelegator.Init(screen);

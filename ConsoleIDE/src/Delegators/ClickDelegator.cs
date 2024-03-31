@@ -1,5 +1,5 @@
 using ConsoleIDE.Buttons;
-
+using ConsoleIDE.Delegators;
 using EventType = Mindmagma.Curses.CursesMouseEvent;
 
 namespace ConsoleIDE;
@@ -15,9 +15,7 @@ static class ClickDelegator
 		NCurses.Keypad(screen, true);
 
 		NCurses.MouseMask(
-			EventType.BUTTON1_CLICKED |
-			EventType.BUTTON2_CLICKED |
-			EventType.REPORT_MOUSE_POSITION,
+			EventType.ALL_MOUSE_EVENTS,
 			out _
 		);
 
@@ -36,6 +34,15 @@ static class ClickDelegator
 	public static void Delegate(MouseEvent ev)
 	{
 		NCurses.Erase();
+
+		if (
+			((ev.bstate & EventType.BUTTON1_CLICKED) == 0) &&
+			((ev.bstate & EventType.BUTTON2_CLICKED) == 0) &&
+			((ev.bstate & EventType.REPORT_MOUSE_POSITION) == 0)
+		)
+		{
+			ViewDelegator.ProcessMouse(ev);
+		}
 
 		foreach (IButton btn in CurrentPageClickables.Concat(FrozenClickables).ToArray()) // .ToArray() to copy in case collection is modified during iter
 		{

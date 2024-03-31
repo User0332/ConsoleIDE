@@ -29,4 +29,9 @@ public class DefaultView(ScreenReference screen) : IView
 	{
 		
 	}
+
+	public void RecieveMouseInput(MouseEvent ev)
+	{
+		
+	}
 }

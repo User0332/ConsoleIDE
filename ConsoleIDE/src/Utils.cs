@@ -6,7 +6,8 @@ namespace ConsoleIDE;
 public static class Utils
 {
 	public const int ERR = -1;
-	public static int GlobalYScroll = 0;
+	public const uint MOUSE_SCROLL_UP = 2 << ((4 - 1) * 5);
+	public const uint MOUSE_SCROLL_DOWN = 2 << ((5 - 1) * 5);
 	public static readonly nint CursesLib;
 
 	public delegate int mvchgat_func(int y, int x, int n, uint attr, short color_pair, nint options);
@@ -62,5 +63,15 @@ public static class Utils
 		int res = mvchgat(y, x, n, attr, color_pair, options);
 
 		if (res == ERR) throw new Exception("MoveChangeAttr (mvchgat) Returned ERR");
+	}
+
+	public static bool IsMouseEventType(MouseEvent ev, uint eventType)
+	{
+		return (ev.bstate & eventType) != 0;
+	}
+
+	public static uint COLOR_PAIR(uint num)
+	{
+		return num << 8;
 	}
 }

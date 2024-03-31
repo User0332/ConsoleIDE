@@ -8,6 +8,8 @@ public class SelectFolderView(ScreenReference screen) : IView
 {
 	readonly ScreenReference screen = screen;
 
+	int yScroll;
+
 	public void InitFrozens()
 	{
 		ClickDelegator.RegisterFrozen(new ExitButton());
@@ -23,13 +25,13 @@ public class SelectFolderView(ScreenReference screen) : IView
 		dirs.Add("..");
 		
 
-		if (Utils.GlobalYScroll < dirs.Count)
+		if (yScroll < dirs.Count)
 		{
-			for (int i = Utils.GlobalYScroll; i < Math.Min(Utils.GlobalYScroll+Utils.GetWindowHeight(screen)-2, dirs.Count); i++)
+			for (int i = yScroll; i < Math.Min(yScroll+Utils.GetWindowHeight(screen)-2, dirs.Count); i++)
 			{
 				ClickDelegator.Register(
 					new FolderSelectButton(
-						new(0, i-Utils.GlobalYScroll+2), dirs[i]
+						new(0, i-yScroll+2), dirs[i]
 					)
 				);
 			}
@@ -48,7 +50,23 @@ public class SelectFolderView(ScreenReference screen) : IView
 
 	public void RecieveKey(int key)
 	{
+
+	}
+
+	public void RecieveMouseInput(MouseEvent ev)
+	{
+		if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_UP))
+		{
+			yScroll = Math.Max(0, yScroll-1);
+
+			return;
+		}
+		else if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_DOWN))
+		{
+			yScroll = Math.Min(Math.Max(0, Directory.GetDirectories("./").Length-Utils.GetWindowHeight(screen)), yScroll+1);
 		
+			return;
+		}
 	}
 
 	public class GotoButton(Coordinate pos) : IButton

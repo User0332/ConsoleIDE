@@ -6,4 +6,5 @@ public interface IView
 	void InitFrozens();
 
 	void RecieveKey(int key);
+	void RecieveMouseInput(MouseEvent ev);
 }

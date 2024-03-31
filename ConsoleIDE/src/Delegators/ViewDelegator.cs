@@ -52,4 +52,9 @@ public static class ViewDelegator
 	{
 		CurrentView.RecieveKey(key);
 	}
+
+	public static void ProcessMouse(MouseEvent ev)
+	{
+		CurrentView.RecieveMouseInput(ev);
+	}
 }

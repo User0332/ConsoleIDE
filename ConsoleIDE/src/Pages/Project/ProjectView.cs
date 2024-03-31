@@ -17,6 +17,7 @@ public class ProjectView : IView
 
 	public void InitFrozens()
 	{
+		NCurses.SetCursor(0);
 		ClickDelegator.RegisterFrozen(new ExitButton());
 		ClickDelegator.RegisterFrozen(new BackButton());
 	}
@@ -33,5 +34,10 @@ public class ProjectView : IView
 	public void RecieveKey(int key)
 	{
 		fileEditor.SendKey((char) key);
+	}
+
+	public void RecieveMouseInput(MouseEvent ev)
+	{
+		fileEditor.SendMouseEvent(ev);
 	}
 }
