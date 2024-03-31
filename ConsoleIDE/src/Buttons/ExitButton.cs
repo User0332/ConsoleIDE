@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace ConsoleIDE.Buttons;
 
 public class ExitButton(Coordinate pos) : IButton
@@ -24,6 +26,7 @@ public class ExitButton(Coordinate pos) : IButton
 	{
 		NCurses.EndWin();
 		ClickDelegator.Quit();
+		NativeLibrary.Free(Utils.CursesLib);
 		Environment.Exit(0);
 	}
 

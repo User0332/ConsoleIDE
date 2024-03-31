@@ -1,10 +1,27 @@
+using System.Runtime.InteropServices;
 using ConsoleIDE.Buttons;
 
 namespace ConsoleIDE;
 
 public static class Utils
 {
+	public const int ERR = -1;
 	public static int GlobalYScroll = 0;
+	public static readonly nint CursesLib;
+
+	public delegate int mvchgat_func(int y, int x, int n, uint attr, short color_pair, nint options);
+
+	static readonly mvchgat_func mvchgat;
+
+	static Utils()
+	{
+		CursesLib = NativeLibrary.Load(new CursesLibraryNames().NamesLinux[1]); // right now only linux support
+
+		mvchgat = (mvchgat_func) Marshal.GetDelegateForFunctionPointer(
+			NativeLibrary.GetExport(CursesLib, "mvchgat"),
+			typeof(mvchgat_func)
+		);
+	}
 
 	public static Coordinate GetWindowSize(ScreenReference screen)
 	{
@@ -38,5 +55,12 @@ public static class Utils
 	public static int CTRL(int c)
 	{
 		return c & 0x1F;
+	}
+
+	public static void MoveChangeAttr(int y, int x, int n, uint attr, short color_pair = 0, nint options = 0)
+	{
+		int res = mvchgat(y, x, n, attr, color_pair, options);
+
+		if (res == ERR) throw new Exception("MoveChangeAttr (mvchgat) Returned ERR");
 	}
 }
