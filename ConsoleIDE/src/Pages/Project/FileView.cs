@@ -245,9 +245,9 @@ public class FileView(Coordinate pos, int widthBound)
 	{
 		if (redos.Count == 0) return;
 
-		(currLines, editingXIndex, editingYIndex) = redos[^1];
-
 		undos.Add(([..currLines], editingXIndex, editingYIndex));
+		
+		(currLines, editingXIndex, editingYIndex) = redos[^1];
 
 		redos.RemoveAt(redos.Count-1);		
 	}
