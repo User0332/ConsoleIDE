@@ -4,7 +4,7 @@ using ConsoleIDE.Pages.Project;
 
 namespace ConsoleIDE.Pages;
 
-public class SelectFolderView(ScreenReference screen) : IView
+public class SelectFolderView(ScreenReference screen) : IView // TODO: allow selection/navigation with arrow keys
 {
 	readonly ScreenReference screen = screen;
 

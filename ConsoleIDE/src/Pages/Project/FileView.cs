@@ -1,10 +1,13 @@
 using ConsoleIDE.Buttons;
+
+// A CursorPair is a tuple that either represents a cursor or a selection of text
+// the "controlling" cursor is the one that can be moved via the arrow keys, while the nonControlling (if enabled) just delimits the text selection
 using CursorPair = (ConsoleIDE.Pages.Project.EditingIndex controlling, ConsoleIDE.Pages.Project.EditingIndex notControlling);
 
 namespace ConsoleIDE.Pages.Project;
 
 #pragma warning disable CS0660, CS0661
-class EditingIndex(bool enabled)
+class EditingIndex(bool enabled) // TODO: figure out why this can't be a struct
 {
 	public readonly bool Enabled = enabled;
 	public int X = 0;
@@ -79,7 +82,7 @@ public class FileView(Coordinate pos, int widthBound)
 			displayIndex+=1;
 		}
 
-		return displayIndex;
+		return displayIndex+1; // TODO: figure out why this +1 is needed
 	}
 
 	public void Render()
@@ -93,8 +96,21 @@ public class FileView(Coordinate pos, int widthBound)
 		string editingMessage = editing ? "[editing] " : "[viewing] ";
 		editingMessage+=saved ? "[saved]" : "[unsaved]";
 
-		AddStr(viewPos, $"{currentFile.Name} ({currentFile.FullName}) {editingMessage}");
+		// ExitButton.Size.X+1 (+1 for padding)
+		// -4 for two spaces and two parentheses (see below AddStr call)
+		int maxFileNameLen = WidthBound-viewPos.X-editingMessage.Length-currentFile.Name.Length-(ExitButton.Size.X+1)-4;
+
+		string fullDisplayFileName = currentFile.FullName;
+
+		if (fullDisplayFileName.Length > maxFileNameLen)
+		{
+			fullDisplayFileName = fullDisplayFileName[..(maxFileNameLen-3)]+"...";
+		}
+
+		AddStr(viewPos, $"{currentFile.Name} ({fullDisplayFileName}) {editingMessage}");
 		AddStr(viewPos.AddY(1), new string('_', WidthBound-viewPos.X));
+
+		if (!editing) currLines = [.. File.ReadAllText(currentFile.FullName).Split(Environment.NewLine)]; // if we're just viewing, update the file contents on each re-render
 
 		DisplayFileContents(viewPos.AddY(3));
 
@@ -141,7 +157,7 @@ public class FileView(Coordinate pos, int widthBound)
 		{
 			Utils.MoveChangeAttr(
 				i+3,
-				0+viewPos.X,
+				0+viewPos.X+LongestLineNoLength,
 				currLines[i].Length,
 				CursesAttribute.REVERSE
 			);
@@ -157,7 +173,7 @@ public class FileView(Coordinate pos, int widthBound)
 
 		Utils.MoveChangeAttr(
 			begin.Y+3,
-			GetEditingDisplayXIndex(end)+viewPos.X+LongestLineNoLength,
+			GetEditingDisplayXIndex(begin)+viewPos.X+LongestLineNoLength,
 			currLines[begin.Y][begin.X..].Length,
 			CursesAttribute.REVERSE
 		);
@@ -192,7 +208,7 @@ public class FileView(Coordinate pos, int widthBound)
 		}
 		else if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_DOWN))
 		{
-			yScroll = Math.Min(Math.Max(0, currLines.Count-(Utils.GetWindowHeight(GlobalScreen.Screen)-4)), yScroll+1);
+			yScroll = Math.Min(Math.Max(0, currLines.Count-(Utils.GetWindowHeight(GlobalScreen.Screen)-3)), yScroll+1);
 		
 			return;
 		}
@@ -225,6 +241,8 @@ public class FileView(Coordinate pos, int widthBound)
 		{
 			cursors[0].controlling.Y = Math.Max(cursors[0].controlling.Y-1, 0);
 			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineRealMaxIdx);
+
+			// TODO: autoscroll
 		
 			return;
 		}
@@ -233,6 +251,8 @@ public class FileView(Coordinate pos, int widthBound)
 		{
 			cursors[0].controlling.Y = Math.Min(cursors[0].controlling.Y+1, currLines.Count-1);
 			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineRealMaxIdx);
+
+			// TODO: autoscroll
 			
 			return;
 		}
@@ -391,7 +411,7 @@ public class FileView(Coordinate pos, int widthBound)
 	public void ChangeTo(FileInfo file)
 	{
 		currentFile = file;
-		currLines = [.. File.ReadAllLines(file.FullName)];
+		currLines = [.. File.ReadAllText(file.FullName).Split(Environment.NewLine)];
 
 		yScroll = 0;
 

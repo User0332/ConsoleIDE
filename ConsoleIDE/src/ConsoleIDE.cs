@@ -1,4 +1,4 @@
-﻿global using ScreenReference = nint;
+global using ScreenReference = nint;
 global using Mindmagma.Curses;
 
 using ConsoleIDE.Delegators;
@@ -20,7 +20,7 @@ class IDEMain
 		NCurses.Raw();
 
 
-		NCurses.InitColor(10,500, 500, 500); // gray
+		NCurses.InitColor(10, 500, 500, 500); // gray
 		NCurses.InitPair(1, 10, CursesColor.BLACK);
 		
 
@@ -66,3 +66,10 @@ class IDEMain
 		}
 	}
 }
+
+
+
+
+
+
+
