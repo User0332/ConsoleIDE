@@ -1,4 +1,7 @@
+using ConsoleIDE.AnalyzerWrappers;
 using ConsoleIDE.Buttons;
+using ConsoleIDE.ThemeWrapper;
+
 
 // A CursorPair is a tuple that either represents a cursor or a selection of text
 // the "controlling" cursor is the one that can be moved via the arrow keys, while the nonControlling (if enabled) just delimits the text selection
@@ -41,12 +44,13 @@ class EditingIndex(bool enabled) // TODO: figure out why this can't be a struct
 
 #pragma warning restore CS0660, CS0661
 
-public class FileView(Coordinate pos, int widthBound)
+public class FileView(Coordinate pos, int widthBound, string projectDir)
 {
 	readonly Coordinate viewPos = pos;
 	readonly List<(List<string> lines, CursorPair)> undos = [];
 	readonly List<(List<string> lines, CursorPair)> redos = [];
 	readonly List<CursorPair> cursors = [];
+	readonly Theme currentTheme = ThemeLoader.LoadThemeFromProjectPathOrDefault(projectDir);
 	FileInfo? currentFile;
 	List<string> currLines = [];
 	bool editing = false;
@@ -181,7 +185,33 @@ public class FileView(Coordinate pos, int widthBound)
 
 	void DisplayFileContents(Coordinate pos)
 	{
-		for (int i = yScroll; i < currLines.Count; i++)
+		string projectFile = $"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj";
+
+		if (!File.Exists(projectFile) || !currentFile!.Name.EndsWith(".cs"))
+		{
+			for (int i = yScroll; i < currLines.Count; i++)
+			{
+				string lineNo = (i+1).ToString();
+
+				NCurses.AttributeOn(Utils.COLOR_PAIR(1));
+				AddStr(pos, lineNo);
+				NCurses.AttributeOff(Utils.COLOR_PAIR(1));
+				// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
+
+				AddStr(pos.AddX(LongestLineNoLength+1), currLines[i].Replace("\t", "    "));
+				
+				pos = pos.AddY(1);
+			}
+			
+			return;
+		}
+
+
+		var annotatedLines = SourceFileAnalyzer.GetAnalyzedLinesAsSourceSegments(
+			projectDir, currentFile.FullName, currLines
+		);
+
+		for (int i = yScroll; i < annotatedLines.Count; i++)
 		{
 			string lineNo = (i+1).ToString();
 
@@ -190,7 +220,21 @@ public class FileView(Coordinate pos, int widthBound)
 			NCurses.AttributeOff(Utils.COLOR_PAIR(1));
 			// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
-			AddStr(pos.AddX(LongestLineNoLength+1), currLines[i].Replace("\t", "    "));
+			int currX = 0;
+			int j = 0;
+
+			while (j < annotatedLines[i].Count)
+			{
+				var segment = annotatedLines[i][j];
+
+				var coloredAttr = Utils.COLOR_PAIR(Theme.GetColorPairNumber(segment.Type));
+
+				NCurses.AttributeOn(coloredAttr);
+				AddStr(pos.AddX(currX), segment.Text.Replace("\t", "    "));
+				NCurses.AttributeOff(coloredAttr);
+
+				currX+=segment.Text.Length;
+			}
 			
 			pos = pos.AddY(1);
 		}

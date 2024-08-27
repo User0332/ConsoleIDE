@@ -70,9 +70,9 @@ public static class Utils
 		return (ev.bstate & eventType) != 0;
 	}
 
-	public static uint COLOR_PAIR(uint num)
+	public static uint COLOR_PAIR(short num)
 	{
-		return num << 8;
+		return (uint) num << 8;
 	}
 }
 

@@ -6,7 +6,7 @@ namespace ConsoleIDE.AnalyzerWrappers;
 
 static class SourceFileAnalyzer
 {
-	public static List<List<AnalyzedSourceSegment>> GetAnalyzedLinesAsSourceSegments(string projectFile, string fromSourceFile, string[] currentSourceLines)
+	public static List<List<AnalyzedSourceSegment>> GetAnalyzedLinesAsSourceSegments(string projectFile, string fromSourceFile, List<string> currentSourceLines)
 	{
 		var workspace = MSBuildWorkspace.Create();
 		var project = workspace.OpenProjectAsync(projectFile).Result;
@@ -26,7 +26,7 @@ static class SourceFileAnalyzer
 
 		List<List<AnalyzedSourceSegment>> lines = new(10);
 
-		for (int i = 0; i < currentSourceLines.Length; i++) lines.Add(new(currentSourceLines[i].Length));
+		for (int i = 0; i < currentSourceLines.Count; i++) lines.Add(new(currentSourceLines[i].Length));
 
 		var tokens = root.DescendantTokens();
 	

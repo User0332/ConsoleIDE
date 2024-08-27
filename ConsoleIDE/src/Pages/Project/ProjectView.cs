@@ -12,7 +12,7 @@ public class ProjectView : IView
 	public ProjectView(ScreenReference screen, string projectDir)
 	{
 		this.screen = screen;
-		fileEditor = new(new(30, 0), Utils.GetWindowWidth(screen));;
+		fileEditor = new(new(30, 0), Utils.GetWindowWidth(screen), projectDir);
 		fileExplorer = new(new(0, 0), projectDir, 28, screen, fileEditor.ChangeTo);
 	}
 
