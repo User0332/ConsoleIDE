@@ -39,6 +39,7 @@ public class Theme
 			"var" => THEME_COLOR_PAIR_VAR,
 			"method" => THEME_COLOR_PAIR_METHOD,
 			"keyword" => THEME_COLOR_PAIR_KEYWORD,
+			"none" => 0, // no highlight, default pair
 			_ => throw new ArgumentException("How did we get here?"),
 		};
 	}
