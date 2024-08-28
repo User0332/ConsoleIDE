@@ -116,7 +116,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		AddStr(viewPos, $"{currentFile.Name} ({fullDisplayFileName}) {editingMessage}");
 		AddStr(viewPos.AddY(1), new string('_', WidthBound-viewPos.X));
 
-		if (!editing) currLines = [.. File.ReadAllLines(currentFile.FullName)]; // if we're just viewing, update the file contents on each re-render
+		if (!editing) LoadFileIntoCurrLines(); // if we're just viewing, update the file contents on each re-render
 
 		DisplayFileContents(viewPos.AddY(3));
 
@@ -437,6 +437,19 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		SendKey(CursesKey.RIGHT);
 	}
 
+	void LoadFileIntoCurrLines()
+	{
+		var lines = File.ReadAllLines(currentFile!.FullName);
+
+		if (lines.Length == 0)
+		{
+			currLines = [""];
+			return;
+		}
+
+		currLines = [..lines];
+	}
+
 	public void PushChange()
 	{
 		if (!undos[^1].lines.SequenceEqual(currLines)) // has a change been made?
@@ -494,7 +507,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	public void ChangeTo(FileInfo file)
 	{
 		currentFile = file;
-		currLines = [.. File.ReadAllLines(file.FullName)];
+		LoadFileIntoCurrLines();
 
 		yScroll = 0;
 
