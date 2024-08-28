@@ -65,7 +65,26 @@ class SourceFileAnalyzer
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
 
 			if (isKeyword) internalType = SourceSegmentType.Keyword;
-			else if (isStringOrCharLiteral) internalType = SourceSegmentType.StringLiteral;
+			else if (isStringOrCharLiteral)
+			{
+				bool isMultiline = token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken) && token.IsKind(SyntaxKind.Utf8MultiLineRawStringLiteralToken);
+
+				if (isMultiline)
+				{
+					var stringLines = token.Text.Split('\n');
+
+					lines[lineNo].Add(new(stringLines[0], SourceSegmentType.Comment, charPos));
+
+					for (int i = 1; i < stringLines.Length; i++)
+					{
+						lines[lineNo+i].Add(new(stringLines[i], SourceSegmentType.Comment, 0));
+					}
+					
+					continue;
+				}
+
+				internalType = SourceSegmentType.StringLiteral;
+			}
 			else if (isNumericalLiteral) internalType = SourceSegmentType.NumericalLiteral;
 			else if (symbol is not null) internalType = GetInternalSymbolType(symbol);
 			else if (declSymbol is not null) internalType = GetInternalSymbolType(declSymbol);
