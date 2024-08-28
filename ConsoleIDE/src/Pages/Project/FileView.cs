@@ -102,9 +102,9 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		string editingMessage = editing ? "[editing] " : "[viewing] ";
 		editingMessage+=saved ? "[saved]" : "[unsaved]";
 
-		// ExitButton.Size.X+1 (+1 for padding)
+		// ExitButton.Size.X+BackButton.Size.X+1 (+2 or padding between exit & back buttons)
 		// -4 for two spaces and two parentheses (see below AddStr call)
-		int maxFileNameLen = WidthBound-viewPos.X-editingMessage.Length-currentFile.Name.Length-(ExitButton.Size.X+1)-4;
+		int maxFileNameLen = WidthBound-viewPos.X-editingMessage.Length-currentFile.Name.Length-(ExitButton.Size.X+BackButton.Size.X+2)-4;
 
 		string fullDisplayFileName = currentFile.FullName;
 

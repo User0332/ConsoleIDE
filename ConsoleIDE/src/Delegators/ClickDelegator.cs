@@ -19,7 +19,7 @@ static class ClickDelegator
 			out _
 		);
 
-		Console.WriteLine("\x1b[?1003h");
+		Console.WriteLine("\x1b[?1003h"); // xterm: emit all mouse events
 		Console.Out.Flush();
 
 		ClickDelegator.screen = screen;
@@ -27,7 +27,7 @@ static class ClickDelegator
 
 	public static void Quit()
 	{
-		Console.WriteLine("\x1b[?1003l");
+		Console.WriteLine("\x1b[?1003l"); // xterm: stop emitting all mouse events
 		Console.Out.Flush();
 	}
 

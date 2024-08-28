@@ -13,8 +13,6 @@ class IDEMain
 		
 		GlobalScreen.Screen = screen;
 
-		Console.WriteLine("Hello, World!");
-
 		NCurses.StartColor();
 		NCurses.SetCursor(0);
 		NCurses.NoDelay(screen, true);
