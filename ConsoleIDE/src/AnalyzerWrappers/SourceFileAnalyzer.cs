@@ -81,15 +81,30 @@ class SourceFileAnalyzer
 			var lineNo = trivia.GetLocation().GetLineSpan().StartLinePosition.Line;
 			var charPos = trivia.GetLocation().GetLineSpan().StartLinePosition.Character;
 
-			var isComment =
-				trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) ||
+			var isSingleLineComment =
 				trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) ||
-				trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia) ||
 				trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia);
 
-			var segmentType = isComment ? SourceSegmentType.Comment : SourceSegmentType.None;
+			var isMultiLineComment = trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) ||
+				trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia);
 
-			lines[lineNo].Add(new(trivia.ToString(), segmentType, charPos));
+			if (isMultiLineComment)
+			{
+				var commentLines = trivia.ToString().Split('\n');
+
+				lines[lineNo].Add(new(commentLines[0], SourceSegmentType.Comment, charPos));
+
+				for (int i = 1; i < commentLines.Length; i++)
+				{
+					lines[lineNo+i].Add(new(commentLines[i], SourceSegmentType.Comment, 0));
+				}
+			}
+			else
+			{
+				var segmentType = isSingleLineComment ? SourceSegmentType.Comment : SourceSegmentType.None;
+
+				lines[lineNo].Add(new(trivia.ToString(), segmentType, charPos));
+			}
 		}
 	}
 

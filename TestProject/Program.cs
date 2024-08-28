@@ -1,11 +1,15 @@
-// See https://aka.ms/new-console-template for more information
+/*
+	This C# program writes "Hello, World!" to
+	the standard output stream via Console.WriteLine.
+	Made with ConsoleIDE.
+*/
 
-/* This C# program.is.cool */
 public class Program
 {
-	static int Main()
+	static int Main(string[] args)
 	{
 		Console.WriteLine("Hello, World!");
+		
 		return 0;
 	}
 }
