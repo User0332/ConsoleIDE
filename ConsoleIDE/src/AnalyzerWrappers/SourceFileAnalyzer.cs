@@ -28,31 +28,30 @@ class SourceFileAnalyzer
 		var semanticModel = compilation.GetSemanticModel(newTree);
 		var root = newTree.GetRoot();
 
-		List<List<AnalyzedSourceSegment>> lines = new(10);
+		List<List<AnalyzedSourceSegment>> lines = new(currentSourceLines.Count);
 
-		for (int i = 0; i < currentSourceLines.Count; i++) lines.Add(new(currentSourceLines[i].Length));
+		for (int i = 0; i < currentSourceLines.Count; i++) lines.Add(new(10));
 
 		var tokens = root.DescendantTokens();
-	
+		var nodes = root.DescendantNodes();
+
 		foreach (var token in tokens)
 		{
+			if (token.IsKind(SyntaxKind.EndOfFileToken)) break;
+			
 			var declSymbol = semanticModel.GetDeclaredSymbol(token.Parent!);
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
 			var type = semanticModel.GetTypeInfo(token.Parent!).Type;
 
-			string internalType = "none";
+			SourceSegmentType internalType = SourceSegmentType.None;
 
 			if (SyntaxFacts.IsKeywordKind(token.Kind()))
 			{
-				internalType = "keyword";
+				internalType = SourceSegmentType.Keyword;
 			}
 			else if (symbol is not null)
 			{
 				internalType = GetInternalSymbolType(symbol);
-			}
-			else if (type is not null)
-			{
-				internalType = "type";
 			}
 			else if (declSymbol is not null)
 			{
@@ -61,20 +60,38 @@ class SourceFileAnalyzer
 
 			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
 
-			lines[lineNo].Add(new(string.Join("", FilterNewLinesFromTrivia(token.LeadingTrivia)), "none"));
+			PlaceTrivia(lines, token.LeadingTrivia);
 			lines[lineNo].Add(new(token.Text, internalType));
-			lines[lineNo].Add(new(string.Join("", FilterNewLinesFromTrivia(token.TrailingTrivia)), "none"));
+			PlaceTrivia(lines, token.TrailingTrivia);
 		}
 
 		return lines;
 	}
+	
+	static void PlaceTrivia(List<List<AnalyzedSourceSegment>> lines, SyntaxTriviaList triviaList)
+	{
+		foreach (var trivia in FilterNewLinesFromTrivia(triviaList)) // TODO: group trivia by line so we have less segments (e.g. we can use string.Join)
+		{
+			var lineNo = trivia.GetLocation().GetLineSpan().StartLinePosition.Line;
 
-	static IEnumerable<SyntaxTrivia> FilterNewLinesFromTrivia(IEnumerable<SyntaxTrivia> trivia)
+			var isComment =
+				trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) ||
+				trivia.IsKind(SyntaxKind.SingleLineCommentTrivia) ||
+				trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia) ||
+				trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia);
+
+			var segmentType = isComment ? SourceSegmentType.Comment : SourceSegmentType.None;
+
+			lines[lineNo].Add(new(trivia.ToString(), segmentType));
+		}
+	}
+
+	static IEnumerable<SyntaxTrivia> FilterNewLinesFromTrivia(SyntaxTriviaList trivia)
 	{
 		return trivia.Where(t => !t.IsKind(SyntaxKind.EndOfLineTrivia));
 	}
 
-	static string GetInternalSymbolType(ISymbol symbol)
+	static SourceSegmentType GetInternalSymbolType(ISymbol symbol)
 	{
 		return symbol.Kind switch
 		{
@@ -85,16 +102,24 @@ class SourceFileAnalyzer
 				SymbolKind.PointerType or
 				SymbolKind.FunctionPointerType or
 				SymbolKind.Namespace or
-				SymbolKind.Alias => "type",
+				SymbolKind.Alias  => SourceSegmentType.Type,
 
 			SymbolKind.Field or
 				SymbolKind.Local or 
 				SymbolKind.Parameter or 
 				SymbolKind.RangeVariable or
-				SymbolKind.Property or
-				SymbolKind.Label => "var",
+				SymbolKind.Property => SourceSegmentType.Var,
 
-			SymbolKind.Method => "method",
+			SymbolKind.Method => SourceSegmentType.Method,
+
+			SymbolKind.Preprocessing or
+				SymbolKind.Discard => SourceSegmentType.Keyword,
+
+			SymbolKind.Label or
+				SymbolKind.ErrorType or
+				SymbolKind.Assembly or
+				SymbolKind.Event or
+				SymbolKind.NetModule => SourceSegmentType.None,
 
 			var other => throw new Exception(other.ToString())
 		};

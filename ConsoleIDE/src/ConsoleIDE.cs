@@ -10,8 +10,10 @@ class IDEMain
 	static int Main(string[] args)
 	{
 		ScreenReference screen = NCurses.InitScreen();
-
+		
 		GlobalScreen.Screen = screen;
+
+		Console.WriteLine("Hello, World!");
 
 		NCurses.StartColor();
 		NCurses.SetCursor(0);

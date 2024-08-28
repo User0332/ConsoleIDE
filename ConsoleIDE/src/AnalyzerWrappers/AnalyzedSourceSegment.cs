@@ -1,11 +1,8 @@
-using ConsoleIDE.ThemeWrapper;
+using ConsoleIDE.AnalyzerWrappers;
 
-readonly struct AnalyzedSourceSegment(string text, string type)
+readonly struct AnalyzedSourceSegment(string text, SourceSegmentType type)
 {
 	public readonly string Text = text;
-	public readonly string Type = type;
-	public readonly short ColorPair
-	{
-		get => Theme.GetColorPairNumber(Type);
-	}
+	public readonly SourceSegmentType Type = type;
+	public readonly short ColorPairNumber = (short) type;
 }
