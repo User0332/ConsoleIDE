@@ -39,6 +39,8 @@ class SourceFileAnalyzer
 			if (token.IsKind(SyntaxKind.EndOfFileToken)) break;
 
 			bool isKeyword = false;
+			bool isStringOrCharLiteral = false;
+			bool isNumericalLiteral = false;
 
 			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
 			var charPos = token.GetLocation().GetLineSpan().StartLinePosition.Character;
@@ -47,7 +49,9 @@ class SourceFileAnalyzer
 				!(
 					token.IsKind(SyntaxKind.IdentifierName) ||
 					token.IsKind(SyntaxKind.IdentifierToken) ||
-					(isKeyword = SyntaxFacts.IsKeywordKind(token.Kind()))
+					(isKeyword = SyntaxFacts.IsKeywordKind(token.Kind())) ||
+					(isStringOrCharLiteral = SyntaxFacts.IsLiteralExpression(token.Kind()) && !token.IsKind(SyntaxKind.NumericLiteralToken)) ||
+					(isNumericalLiteral = token.IsKind(SyntaxKind.NumericLiteralToken))
 				)
 			)
 			{
@@ -59,21 +63,12 @@ class SourceFileAnalyzer
 			
 			var declSymbol = semanticModel.GetDeclaredSymbol(token.Parent!);
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
-			var type = semanticModel.GetTypeInfo(token.Parent!).Type;
 
-
-			if (isKeyword)
-			{
-				internalType = SourceSegmentType.Keyword;
-			}
-			else if (symbol is not null)
-			{
-				internalType = GetInternalSymbolType(symbol);
-			}
-			else if (declSymbol is not null)
-			{
-				internalType = GetInternalSymbolType(declSymbol);
-			}
+			if (isKeyword) internalType = SourceSegmentType.Keyword;
+			else if (isStringOrCharLiteral) internalType = SourceSegmentType.StringLiteral;
+			else if (isNumericalLiteral) internalType = SourceSegmentType.NumericalLiteral;
+			else if (symbol is not null) internalType = GetInternalSymbolType(symbol);
+			else if (declSymbol is not null) internalType = GetInternalSymbolType(declSymbol);
 
 			lines[lineNo].Add(new(token.Text, internalType, charPos));
 		}

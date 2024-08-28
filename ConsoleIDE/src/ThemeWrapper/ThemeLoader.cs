@@ -10,7 +10,9 @@ public static class ThemeLoader
 		VarColor = [459, 745, 1000],
 		MethodColor = [863, 863, 667],
 		KeywordColor = [337, 612, 839],
-		CommentColor = [416, 600, 333]
+		CommentColor = [416, 600, 333],
+		StringLiteralColor = [808, 569, 471],
+		NumericalLiteralColor = [710, 808, 659]
 	};
 
 	public static Theme LoadThemeFromProjectPathOrDefault(string projectPath) // TODO: have ConsoleIDE configuration dir for global configs

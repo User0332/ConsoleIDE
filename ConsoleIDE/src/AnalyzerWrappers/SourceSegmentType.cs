@@ -7,5 +7,7 @@ enum SourceSegmentType : short
 	Var,
 	Method,
 	Keyword,
-	Comment
+	Comment,
+	StringLiteral,
+	NumericalLiteral
 }
