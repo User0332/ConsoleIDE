@@ -37,14 +37,32 @@ class SourceFileAnalyzer
 		foreach (var token in tokens)
 		{
 			if (token.IsKind(SyntaxKind.EndOfFileToken)) break;
+
+			bool isKeyword = false;
+
+			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
+			var charPos = token.GetLocation().GetLineSpan().StartLinePosition.Character;
+
+			if (
+				!(
+					token.IsKind(SyntaxKind.IdentifierName) ||
+					token.IsKind(SyntaxKind.IdentifierToken) ||
+					(isKeyword = SyntaxFacts.IsKeywordKind(token.Kind()))
+				)
+			)
+			{
+				lines[lineNo].Add(new(token.Text, SourceSegmentType.None, charPos));
+				continue;
+			}
+
+			SourceSegmentType internalType = SourceSegmentType.None;
 			
 			var declSymbol = semanticModel.GetDeclaredSymbol(token.Parent!);
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
 			var type = semanticModel.GetTypeInfo(token.Parent!).Type;
 
-			SourceSegmentType internalType = SourceSegmentType.None;
 
-			if (SyntaxFacts.IsKeywordKind(token.Kind()))
+			if (isKeyword)
 			{
 				internalType = SourceSegmentType.Keyword;
 			}
@@ -56,9 +74,6 @@ class SourceFileAnalyzer
 			{
 				internalType = GetInternalSymbolType(declSymbol);
 			}
-
-			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
-			var charPos = token.GetLocation().GetLineSpan().StartLinePosition.Character;
 
 			lines[lineNo].Add(new(token.Text, internalType, charPos));
 		}

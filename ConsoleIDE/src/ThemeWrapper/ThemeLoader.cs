@@ -6,11 +6,11 @@ public static class ThemeLoader
 {
 	static readonly Theme DefaultTheme = new() // TODO: add better colors!
 	{
-		TypeColor = [0, 500, 0],
-		VarColor = [0, 250, 250],
-		MethodColor = [250, 250, 0],
-		KeywordColor = [0, 0, 250],
-		CommentColor = [250, 500, 250]
+		TypeColor = [306, 788, 690],
+		VarColor = [459, 745, 1000],
+		MethodColor = [863, 863, 667],
+		KeywordColor = [337, 612, 839],
+		CommentColor = [416, 600, 333]
 	};
 
 	public static Theme LoadThemeFromProjectPathOrDefault(string projectPath) // TODO: have ConsoleIDE configuration dir for global configs
