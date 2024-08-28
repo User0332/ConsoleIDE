@@ -68,11 +68,3 @@ class IDEMain
 		}
 	}
 }
-
-
-
-
-
-
-
-

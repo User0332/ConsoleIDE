@@ -61,7 +61,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	public int WidthBound = widthBound;
 	public int HeightBound = Utils.GetWindowHeight(GlobalScreen.Screen)-3;
 
-	int CurrentLineRealMaxIdx
+	int CurrentLineVisualMaxIdx
 	{
 		get => currLines[cursors[0].controlling.Y+yScroll].Length;
 	}
@@ -116,7 +116,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		AddStr(viewPos, $"{currentFile.Name} ({fullDisplayFileName}) {editingMessage}");
 		AddStr(viewPos.AddY(1), new string('_', WidthBound-viewPos.X));
 
-		if (!editing) currLines = [.. File.ReadAllText(currentFile.FullName).Split(Environment.NewLine)]; // if we're just viewing, update the file contents on each re-render
+		if (!editing) currLines = [.. File.ReadAllLines(currentFile.FullName)]; // if we're just viewing, update the file contents on each re-render
 
 		DisplayFileContents(viewPos.AddY(3));
 
@@ -210,7 +210,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			currentFile.FullName, currLines
 		);
 
-		for (int i = yScroll; i < annotatedLines.Count; i++)
+		for (int i = yScroll; i < annotatedLines.Length; i++)
 		{
 			string lineNo = (i+1).ToString();
 
@@ -222,7 +222,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			int currX = LongestLineNoLength+1;
 			int j = 0;
 
-			while (j < annotatedLines[i].Count)
+			while (j < annotatedLines[i].Length)
 			{
 				var segment = annotatedLines[i][j];
 
@@ -285,11 +285,18 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (key == CursesKey.UP)
 		{
-			cursors[0].controlling.Y = Math.Max(cursors[0].controlling.Y-1, 0);
-			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineRealMaxIdx);
+			if (cursors[0].controlling.Y == 0) // we are at the top of the screen and must use yScroll to move the cursor up
+			{
+				if (yScroll == 0) return; // we are at the very top of the screen & the file, we can't move further up
 
-			// TODO: autoscroll
-		
+				yScroll--;
+
+			}
+			else cursors[0].controlling.Y--; // otherwise, we can just move the cursor up visually
+
+			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineVisualMaxIdx);
+
+
 			return;
 		}
 		
@@ -297,18 +304,17 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		{
 			// autoscroll if down arrow pressed & we are at the bottom of the screen and not at the end of the file
 
-			bool onLastLine = currLines.Count-yScroll == HeightBound;
+			bool endOfFileVisible = currLines.Count-yScroll <= HeightBound;
 
-			if (cursors[0].controlling.Y+1 > HeightBound) // we are at the bottom of the screen, we must autoscroll
+			if ((cursors[0].controlling.Y+1) == HeightBound) // we are at the bottom of the screen, we must autoscroll
 			{
-				if (onLastLine) return; // we can't go further down
+				if (endOfFileVisible) return; // we can't go further down
 
-				cursors[0].controlling.Y = HeightBound;
 				yScroll++;
 			}
-			else cursors[0].controlling.Y = cursors[0].controlling.Y+1; // otherwise, we can freely move down
+			else if ((cursors[0].controlling.Y+yScroll) != currLines.Count-1) cursors[0].controlling.Y++; // otherwise, we can freely move down if we are not on the last line
 			
-			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineRealMaxIdx);
+			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineVisualMaxIdx);
 
 			return;
 		}
@@ -317,32 +323,39 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		{
 			if (cursors[0].controlling.X == 0)
 			{
-				if (cursors[0].controlling.Y == 0) return;
+				if (cursors[0].controlling.Y == 0) // cursor is at top of screen, try autoscrolling
+				{
+					if (yScroll == 0) return;  // at first line in file, cannot move more left
 
-				cursors[0].controlling.Y-=1;
-				cursors[0].controlling.X = CurrentLineRealMaxIdx;
+					yScroll--; // use yScroll to decrement cursor line index
+				}
+				else cursors[0].controlling.Y--; // else move cursor visually
+
+				cursors[0].controlling.X = CurrentLineVisualMaxIdx;
 
 				return;
 			}
 
-			cursors[0].controlling.X-=1;
+			cursors[0].controlling.X--;
 			
 			return;
 		}
 
 		if (key == CursesKey.RIGHT)
 		{
-			if (cursors[0].controlling.X == CurrentLineRealMaxIdx)
+			if (cursors[0].controlling.X == CurrentLineVisualMaxIdx)
 			{
-				if (cursors[0].controlling.Y == currLines.Count-1) return;
+				if (cursors[0].controlling.Y+yScroll == currLines.Count-1) return; // last line in file, cannot move further
 
-				cursors[0].controlling.Y+=1;
+				if ((cursors[0].controlling.Y+1) == HeightBound) yScroll++; // autoscroll if at bottom of screen
+				else cursors[0].controlling.Y++; // else move cursor visually
+				
 				cursors[0].controlling.X = 0;
 
 				return;
 			}
 
-			cursors[0].controlling.X+=1;
+			cursors[0].controlling.X++;
 			
 			return;
 		}
@@ -372,6 +385,8 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			{
 				if (realCursorYIndex == 0) return;
 				
+				bool endOfFileVisible = currLines.Count-yScroll <= HeightBound;
+
 				SendKey(CursesKey.LEFT);
 
 				// SendKey(LEFT) changes cursor position, so we need to update these values
@@ -381,6 +396,8 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 				currLines.RemoveAt(realCursorYIndex+1);
 
 				PushChange();
+
+				if (endOfFileVisible && yScroll > 0) yScroll--;
 
 				return;
 			}
@@ -477,7 +494,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	public void ChangeTo(FileInfo file)
 	{
 		currentFile = file;
-		currLines = [.. File.ReadAllText(file.FullName).Split(Environment.NewLine)];
+		currLines = [.. File.ReadAllLines(file.FullName)];
 
 		yScroll = 0;
 

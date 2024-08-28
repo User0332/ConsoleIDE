@@ -16,7 +16,7 @@ class SourceFileAnalyzer
 		project = workspace.OpenProjectAsync(projectFile).Result;
 		compilationWithAllTrees = project.GetCompilationAsync().Result!;
 	}
-	public List<List<AnalyzedSourceSegment>> GetAnalyzedLinesAsSourceSegments(string fromSourceFile, List<string> currentSourceLines)
+	public AnalyzedSourceSegment[][] GetAnalyzedLinesAsSourceSegments(string fromSourceFile, List<string> currentSourceLines)
 	{
 		var newTree = CSharpSyntaxTree.ParseText(string.Join('\n', currentSourceLines), path: fromSourceFile);
 
@@ -33,7 +33,6 @@ class SourceFileAnalyzer
 		for (int i = 0; i < currentSourceLines.Count; i++) lines.Add(new(10));
 
 		var tokens = root.DescendantTokens();
-		var nodes = root.DescendantNodes();
 
 		foreach (var token in tokens)
 		{
@@ -59,20 +58,28 @@ class SourceFileAnalyzer
 			}
 
 			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
+			var charPos = token.GetLocation().GetLineSpan().StartLinePosition.Character;
 
-			PlaceTrivia(lines, token.LeadingTrivia);
-			lines[lineNo].Add(new(token.Text, internalType));
-			PlaceTrivia(lines, token.TrailingTrivia);
+			lines[lineNo].Add(new(token.Text, internalType, charPos));
 		}
 
-		return lines;
+		var trivia = root.DescendantTrivia();
+
+		PlaceTrivia(lines, trivia);
+
+		return lines.Select(
+			line => line.OrderBy(
+				segment => segment.CharPos
+			).ToArray()
+		).ToArray(); // TODO: optimize this by not re-ordering at the end and instead ordering while building it
 	}
 	
-	static void PlaceTrivia(List<List<AnalyzedSourceSegment>> lines, SyntaxTriviaList triviaList)
+	static void PlaceTrivia(List<List<AnalyzedSourceSegment>> lines, IEnumerable<SyntaxTrivia> triviaList)
 	{
 		foreach (var trivia in FilterNewLinesFromTrivia(triviaList)) // TODO: group trivia by line so we have less segments (e.g. we can use string.Join)
 		{
 			var lineNo = trivia.GetLocation().GetLineSpan().StartLinePosition.Line;
+			var charPos = trivia.GetLocation().GetLineSpan().StartLinePosition.Character;
 
 			var isComment =
 				trivia.IsKind(SyntaxKind.MultiLineCommentTrivia) ||
@@ -82,11 +89,11 @@ class SourceFileAnalyzer
 
 			var segmentType = isComment ? SourceSegmentType.Comment : SourceSegmentType.None;
 
-			lines[lineNo].Add(new(trivia.ToString(), segmentType));
+			lines[lineNo].Add(new(trivia.ToString(), segmentType, charPos));
 		}
 	}
 
-	static IEnumerable<SyntaxTrivia> FilterNewLinesFromTrivia(SyntaxTriviaList trivia)
+	static IEnumerable<SyntaxTrivia> FilterNewLinesFromTrivia(IEnumerable<SyntaxTrivia> trivia)
 	{
 		return trivia.Where(t => !t.IsKind(SyntaxKind.EndOfLineTrivia));
 	}
