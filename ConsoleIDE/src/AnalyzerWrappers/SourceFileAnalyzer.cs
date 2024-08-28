@@ -36,11 +36,9 @@ class SourceFileAnalyzer
 	
 		foreach (var token in tokens)
 		{
+			var declSymbol = semanticModel.GetDeclaredSymbol(token.Parent!);
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
-
-			Console.Error.WriteLine(token.Text);
-			Console.Error.WriteLine(symbol);
-
+			var type = semanticModel.GetTypeInfo(token.Parent!).Type;
 
 			string internalType = "none";
 
@@ -51,6 +49,14 @@ class SourceFileAnalyzer
 			else if (symbol is not null)
 			{
 				internalType = GetInternalSymbolType(symbol);
+			}
+			else if (type is not null)
+			{
+				internalType = "type";
+			}
+			else if (declSymbol is not null)
+			{
+				internalType = GetInternalSymbolType(declSymbol);
 			}
 
 			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
@@ -85,7 +91,8 @@ class SourceFileAnalyzer
 				SymbolKind.Local or 
 				SymbolKind.Parameter or 
 				SymbolKind.RangeVariable or
-				SymbolKind.Property => "var",
+				SymbolKind.Property or
+				SymbolKind.Label => "var",
 
 			SymbolKind.Method => "method",
 

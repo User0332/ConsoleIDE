@@ -218,7 +218,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			NCurses.AttributeOff(Utils.COLOR_PAIR(1));
 			// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
-			int currX = 0;
+			int currX = LongestLineNoLength+1;
 			int j = 0;
 
 			while (j < annotatedLines[i].Count)
