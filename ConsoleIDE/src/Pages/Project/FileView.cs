@@ -51,6 +51,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	readonly List<(List<string> lines, CursorPair)> redos = [];
 	readonly List<CursorPair> cursors = [];
 	readonly Theme currentTheme = ThemeLoader.LoadThemeFromProjectPathOrDefault(projectDir);
+	readonly SourceFileAnalyzer? sourceFileAnalyzer = File.Exists($"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj") ? new($"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj") : null;
 	FileInfo? currentFile;
 	List<string> currLines = [];
 	bool editing = false;
@@ -185,9 +186,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 	void DisplayFileContents(Coordinate pos)
 	{
-		string projectFile = $"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj";
-
-		if (!File.Exists(projectFile) || !currentFile!.Name.EndsWith(".cs"))
+		if ((sourceFileAnalyzer is null) || !currentFile!.Name.EndsWith(".cs"))
 		{
 			for (int i = yScroll; i < currLines.Count; i++)
 			{
@@ -206,9 +205,8 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			return;
 		}
 
-
-		var annotatedLines = SourceFileAnalyzer.GetAnalyzedLinesAsSourceSegments(
-			projectDir, currentFile.FullName, currLines
+		var annotatedLines = sourceFileAnalyzer.GetAnalyzedLinesAsSourceSegments(
+			currentFile.FullName, currLines
 		);
 
 		for (int i = yScroll; i < annotatedLines.Count; i++)
@@ -229,11 +227,14 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 				var coloredAttr = Utils.COLOR_PAIR(Theme.GetColorPairNumber(segment.Type));
 
+				var displayText = segment.Text.Replace("\t", "    ");
+
 				NCurses.AttributeOn(coloredAttr);
-				AddStr(pos.AddX(currX), segment.Text.Replace("\t", "    "));
+				AddStr(pos.AddX(currX), displayText);
 				NCurses.AttributeOff(coloredAttr);
 
-				currX+=segment.Text.Length;
+				currX+=displayText.Length;
+				j++;
 			}
 			
 			pos = pos.AddY(1);
@@ -469,6 +470,8 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	void AddStr(Coordinate pos, string message)
 	{
 		int widthLeft = WidthBound-pos.X-1;
+
+		if (widthLeft < 0) return;
 
 		if (message.Length > widthLeft)
 		{

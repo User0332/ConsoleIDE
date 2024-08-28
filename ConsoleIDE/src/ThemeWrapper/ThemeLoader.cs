@@ -16,6 +16,7 @@ public static class ThemeLoader
 	{
 		var theme = DefaultTheme;
 
+
 		if (File.Exists($"{projectPath}/ConsoleIDE.json"))
 		{
 			theme = JsonConvert.DeserializeObject<Theme>(File.ReadAllText($"{projectPath}/ConsoleIDE.json")) ?? theme;

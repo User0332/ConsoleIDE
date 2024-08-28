@@ -31,6 +31,11 @@ public readonly struct Coordinate(int x, int y)
 	{
 		return new(newX, Y);
 	}
+
+	public override string ToString()
+	{
+		return $"Coordinate(X: {X}, Y: {Y})";
+	}
 }
 
 public readonly struct ClickableBound(Coordinate topLeft, Coordinate topRight, Coordinate bottomLeft, Coordinate bottomRight)

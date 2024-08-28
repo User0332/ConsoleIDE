@@ -4,25 +4,29 @@ using Microsoft.CodeAnalysis.MSBuild;
 
 namespace ConsoleIDE.AnalyzerWrappers;
 
-static class SourceFileAnalyzer
+class SourceFileAnalyzer
 {
-	public static List<List<AnalyzedSourceSegment>> GetAnalyzedLinesAsSourceSegments(string projectFile, string fromSourceFile, List<string> currentSourceLines)
-	{
-		var workspace = MSBuildWorkspace.Create();
-		var project = workspace.OpenProjectAsync(projectFile).Result;
-		var compilationWithOldTree = project.GetCompilationAsync().Result!;
+	readonly MSBuildWorkspace workspace; 
+	readonly Project project;
+	readonly Compilation compilationWithAllTrees;
 
+	public SourceFileAnalyzer(string projectFile)
+	{
+		workspace = MSBuildWorkspace.Create();
+		project = workspace.OpenProjectAsync(projectFile).Result;
+		compilationWithAllTrees = project.GetCompilationAsync().Result!;
+	}
+	public List<List<AnalyzedSourceSegment>> GetAnalyzedLinesAsSourceSegments(string fromSourceFile, List<string> currentSourceLines)
+	{
 		var newTree = CSharpSyntaxTree.ParseText(string.Join('\n', currentSourceLines), path: fromSourceFile);
 
-		var compilation = compilationWithOldTree.ReplaceSyntaxTree(
-			compilationWithOldTree.SyntaxTrees.Where(tree => tree.FilePath.Equals(fromSourceFile)).First(),
+		var compilation = compilationWithAllTrees.ReplaceSyntaxTree(
+			compilationWithAllTrees.SyntaxTrees.Where(tree => tree.FilePath.Equals(fromSourceFile)).First(),
 			newTree
 		);
 
 		var semanticModel = compilation.GetSemanticModel(newTree);
 		var root = newTree.GetRoot();
-
-		// TODO: get semantic info
 
 		List<List<AnalyzedSourceSegment>> lines = new(10);
 
@@ -33,6 +37,10 @@ static class SourceFileAnalyzer
 		foreach (var token in tokens)
 		{
 			var symbol = semanticModel.GetSymbolInfo(token.Parent!).Symbol;
+
+			Console.Error.WriteLine(token.Text);
+			Console.Error.WriteLine(symbol);
+
 
 			string internalType = "none";
 
@@ -47,10 +55,17 @@ static class SourceFileAnalyzer
 
 			var lineNo = token.GetLocation().GetLineSpan().StartLinePosition.Line;
 
+			lines[lineNo].Add(new(string.Join("", FilterNewLinesFromTrivia(token.LeadingTrivia)), "none"));
 			lines[lineNo].Add(new(token.Text, internalType));
+			lines[lineNo].Add(new(string.Join("", FilterNewLinesFromTrivia(token.TrailingTrivia)), "none"));
 		}
 
 		return lines;
+	}
+
+	static IEnumerable<SyntaxTrivia> FilterNewLinesFromTrivia(IEnumerable<SyntaxTrivia> trivia)
+	{
+		return trivia.Where(t => !t.IsKind(SyntaxKind.EndOfLineTrivia));
 	}
 
 	static string GetInternalSymbolType(ISymbol symbol)
@@ -62,16 +77,19 @@ static class SourceFileAnalyzer
 				SymbolKind.NamedType or
 				SymbolKind.TypeParameter or
 				SymbolKind.PointerType or
-				SymbolKind.FunctionPointerType => "type",
+				SymbolKind.FunctionPointerType or
+				SymbolKind.Namespace or
+				SymbolKind.Alias => "type",
 
 			SymbolKind.Field or
 				SymbolKind.Local or 
 				SymbolKind.Parameter or 
-				SymbolKind.RangeVariable => "var",
+				SymbolKind.RangeVariable or
+				SymbolKind.Property => "var",
 
 			SymbolKind.Method => "method",
 
-			_ => "none"
+			var other => throw new Exception(other.ToString())
 		};
 	}
 }

@@ -2,10 +2,10 @@ namespace ConsoleIDE.ThemeWrapper;
 
 public class Theme
 {
-	const short THEME_COLOR_TYPE = 256;
-	const short THEME_COLOR_VAR = 257;
-	const short THEME_COLOR_METHOD = 258;
-	const short THEME_COLOR_KEYWORD = 259;
+	const short THEME_COLOR_TYPE = 20;
+	const short THEME_COLOR_VAR = 21;
+	const short THEME_COLOR_METHOD = 22;
+	const short THEME_COLOR_KEYWORD = 23;
 
 	public const short THEME_COLOR_PAIR_TYPE = THEME_COLOR_TYPE*2;
 	public const short THEME_COLOR_PAIR_VAR = THEME_COLOR_VAR*2;
@@ -27,6 +27,7 @@ public class Theme
 
 	static void InitColorPair(short useColorNum, short usePairNum, short[] color)
 	{
+
 		NCurses.InitColor(useColorNum, color[0], color[1], color[2]);
 		NCurses.InitPair(usePairNum, useColorNum, CursesColor.BLACK);
 	}
