@@ -67,23 +67,17 @@ class SourceFileAnalyzer
 			if (isKeyword) internalType = SourceSegmentType.Keyword;
 			else if (isStringOrCharLiteral)
 			{
-				bool isMultiline = token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken) && token.IsKind(SyntaxKind.Utf8MultiLineRawStringLiteralToken);
+				// the loop ensures that multiline literals are handled properly
+				var stringLines = token.Text.Split('\n');
 
-				if (isMultiline)
+				lines[lineNo].Add(new(stringLines[0], SourceSegmentType.StringLiteral, charPos));
+
+				for (int i = 1; i < stringLines.Length; i++)
 				{
-					var stringLines = token.Text.Split('\n');
-
-					lines[lineNo].Add(new(stringLines[0], SourceSegmentType.Comment, charPos));
-
-					for (int i = 1; i < stringLines.Length; i++)
-					{
-						lines[lineNo+i].Add(new(stringLines[i], SourceSegmentType.Comment, 0));
-					}
-					
-					continue;
+					lines[lineNo+i].Add(new(stringLines[i], SourceSegmentType.StringLiteral, 0));
 				}
 
-				internalType = SourceSegmentType.StringLiteral;
+				continue;
 			}
 			else if (isNumericalLiteral) internalType = SourceSegmentType.NumericalLiteral;
 			else if (symbol is not null) internalType = GetInternalSymbolType(symbol);
