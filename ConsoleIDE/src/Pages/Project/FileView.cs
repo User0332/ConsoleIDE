@@ -334,8 +334,11 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 			currLines.Insert(cursors[0].controlling.RealYIndex+1, slicedText);
 			
-			SendKey(CursesKey.DOWN);
+			cursors[0].controlling.DisplayX++;
 			cursors[0].controlling.RealXIndex = 0;
+
+			cursors[0].controlling.DisplayX+=0; // update XScroll
+			
 
 			PushChange();
 
@@ -344,9 +347,9 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		currLines[cursors[0].controlling.RealYIndex] = currLines[cursors[0].controlling.RealYIndex].Insert(cursors[0].controlling.RealXIndex, char.ConvertFromUtf32(key));
 
-		if ((DateTime.Now.Second - secSinceLastChange) >= 20) PushChange();
+		cursors[0].controlling.DisplayX++;
 
-		SendKey(CursesKey.RIGHT);
+		if ((DateTime.Now.Second - secSinceLastChange) >= 20) PushChange();
 	}
 
 	void LoadFileIntoCurrLines()
