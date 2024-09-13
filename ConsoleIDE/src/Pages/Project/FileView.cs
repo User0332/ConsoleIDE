@@ -2,47 +2,7 @@ using ConsoleIDE.AnalyzerWrappers;
 using ConsoleIDE.Buttons;
 using ConsoleIDE.ThemeWrapper;
 
-
-// A CursorPair is a tuple that either represents a cursor or a selection of text
-// the "controlling" cursor is the one that can be moved via the arrow keys, while the nonControlling (if enabled) just delimits the text selection
-using CursorPair = (ConsoleIDE.Pages.Project.EditingIndex controlling, ConsoleIDE.Pages.Project.EditingIndex notControlling);
-
 namespace ConsoleIDE.Pages.Project;
-
-#pragma warning disable CS0660, CS0661
-class EditingIndex(bool enabled) // TODO: figure out why this can't be a struct
-{
-	public readonly bool Enabled = enabled;
-	public int X = 0;
-	public int Y = 0;
-
-	public static bool operator<(EditingIndex self, EditingIndex other)
-	{
-		return self.Y < other.Y || (self.X < other.X) && self.Y == other.Y;
-	}
-
-	public static bool operator>(EditingIndex self, EditingIndex other)
-	{
-		return self.Y > other.Y || (self.X > other.X) && self.Y == other.Y;
-	}
-
-	public bool Equals(EditingIndex other)
-	{
-		return (X == other.X) && (Y == other.Y);
-	}
-
-	public static bool operator==(EditingIndex self, EditingIndex other)
-	{
-		return self.Equals(other);
-	}
-
-	public static bool operator!=(EditingIndex self, EditingIndex other)
-	{
-		return !(self == other);
-	}
-}
-
-#pragma warning restore CS0660, CS0661
 
 public class FileView(Coordinate pos, int widthBound, string projectDir)
 {
@@ -57,27 +17,28 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	bool editing = false;
 	bool saved = true;
 	int secSinceLastChange = DateTime.Now.Second;
-	int yScroll;
-	public int WidthBound = widthBound;
-	public int HeightBound = Utils.GetWindowHeight(GlobalScreen.Screen)-3;
-
-	int CurrentLineVisualMaxIdx
-	{
-		get => currLines[cursors[0].controlling.Y+yScroll].Length;
-	}
-
-	int LongestLineNoLength
-	{
-		get => currLines.Count.ToString().Length;
-	}
+	public int YScroll;
+	public int XScroll;
+	public int MaxYScroll => NumberOfLines-HeightBound; // TODO: fix, this isn't actually heightbound (its same semantics as widthbound vs maxcontentdisplaylength)
+	public int MaxXScroll => LongestLineLength-MaxContentDisplayLength;
+	public readonly int WidthBound = widthBound;
+	public readonly int HeightBound = Utils.GetWindowHeight(GlobalScreen.Screen)-3; // todo: paramaterize
+	public int CurrentLineLength => currLines[cursors[0].controlling.RealYIndex].Length;
+	int LongestLineNoLength => NumberOfLines.ToString().Length;
+	int LinePrefixLength => LongestLineNoLength+1; // longest line no + one space for extra padding
+	int LongestLineLength => currLines.Max(line => line.Length);
+	readonly int FilePrefixHeight = 3;
+	public int NumberOfLines => currLines.Count;
+	public int MaxContentDisplayLength => WidthBound-LinePrefixLength-viewPos.X-1;
+	public int MaxContentDisplayHeight => HeightBound-FilePrefixHeight-viewPos.Y;
 
 	int GetEditingDisplayXIndex(EditingIndex cursor)
 	{
-		string currLine = currLines[cursor.Y+yScroll];
+		string currLine = currLines[cursor.RealYIndex];
 
 		int displayIndex = 0;
 
-		for (int i = 0; i < cursor.X; i++)
+		for (int i = 0; i < cursor.RealXIndex; i++)
 		{
 			if (currLine[i] == '\t')
 			{
@@ -88,7 +49,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			displayIndex+=1;
 		}
 
-		return displayIndex+1; // TODO: figure out why this +1 is needed
+		return displayIndex+1-XScroll; // TODO: figure out why this +1 is needed (because of after last idx maybe?)
 	}
 
 	public void Render()
@@ -136,7 +97,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		if (!cursorPair.notControlling.Enabled)
 		{
 			Utils.MoveChangeAttr(
-				cursorPair.controlling.Y+3,
+				cursorPair.controlling.DisplayY+3,
 				GetEditingDisplayXIndex(cursorPair.controlling)+viewPos.X+LongestLineNoLength,
 				1,
 				CursesAttribute.REVERSE
@@ -159,28 +120,28 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			end = cursorPair.notControlling;
 		}
 
-		for (int i = begin.Y+yScroll; i < end.Y+yScroll; i++)
+		for (int i = begin.RealYIndex; i < end.RealYIndex; i++)
 		{
 			Utils.MoveChangeAttr(
 				i+3,
-				0+viewPos.X+LongestLineNoLength,
-				currLines[i+yScroll].Length,
+				viewPos.X+LongestLineNoLength,
+				currLines[i+YScroll].Length,
 				CursesAttribute.REVERSE
 			);
 		}
 
 
 		Utils.MoveChangeAttr(
-			end.Y+3,
+			end.DisplayY+3,
 			GetEditingDisplayXIndex(end)+viewPos.X+LongestLineNoLength,
-			currLines[end.Y+yScroll][..end.X].Length,
+			currLines[end.RealYIndex][..end.RealXIndex].Length,
 			CursesAttribute.REVERSE
 		);
 
 		Utils.MoveChangeAttr(
-			begin.Y+3,
+			begin.DisplayY+3,
 			GetEditingDisplayXIndex(begin)+viewPos.X+LongestLineNoLength,
-			currLines[begin.Y+yScroll][begin.X..].Length,
+			currLines[begin.RealYIndex][begin.RealXIndex..].Length,
 			CursesAttribute.REVERSE
 		);
 	}
@@ -189,7 +150,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	{
 		if ((sourceFileAnalyzer is null) || !currentFile!.Name.EndsWith(".cs"))
 		{
-			for (int i = yScroll; i < currLines.Count; i++)
+			for (int i = YScroll; i < NumberOfLines; i++)
 			{
 				string lineNo = (i+1).ToString();
 
@@ -198,7 +159,15 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 				NCurses.AttributeOff(Utils.COLOR_PAIR(1));
 				// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
-				AddStr(pos.AddX(LongestLineNoLength+1), currLines[i].Replace("\t", "    "));
+				string tabConverted = currLines[i].Replace("\t", "    ");
+
+				if (XScroll >= tabConverted.Length) continue; // no need to display anything, line is not visible
+				
+
+
+				string toDisplay = tabConverted[XScroll..Math.Min(tabConverted.Length, XScroll+MaxContentDisplayLength)];
+
+				AddStr(pos.AddX(LinePrefixLength), toDisplay);
 				
 				pos = pos.AddY(1);
 			}
@@ -206,11 +175,12 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			return;
 		}
 
+		// TODO: fix xScroll for annotated segments
 		var annotatedLines = sourceFileAnalyzer.GetAnalyzedLinesAsSourceSegments(
 			currentFile.FullName, currLines
 		);
 
-		for (int i = yScroll; i < annotatedLines.Length; i++)
+		for (int i = YScroll; i < annotatedLines.Length; i++)
 		{
 			string lineNo = (i+1).ToString();
 
@@ -219,7 +189,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			NCurses.AttributeOff(Utils.COLOR_PAIR(1));
 			// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
-			int currX = LongestLineNoLength+1;
+			int currX = LinePrefixLength;
 			int j = 0;
 
 			while (j < annotatedLines[i].Length)
@@ -248,13 +218,13 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_UP))
 		{
-			yScroll = Math.Max(0, yScroll-1);
+			YScroll = Math.Max(0, YScroll-1);
 
 			return;
 		}
 		else if (Utils.IsMouseEventType(ev, Utils.MOUSE_SCROLL_DOWN))
 		{
-			yScroll = Math.Min(Math.Max(0, currLines.Count-(Utils.GetWindowHeight(GlobalScreen.Screen)-3)), yScroll+1);
+			YScroll = Math.Min(Math.Max(0, NumberOfLines-(Utils.GetWindowHeight(GlobalScreen.Screen)-3)), YScroll+1);
 		
 			return;
 		}
@@ -283,79 +253,31 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (!editing) return;
 
+
 		if (key == CursesKey.UP)
 		{
-			if (cursors[0].controlling.Y == 0) // we are at the top of the screen and must use yScroll to move the cursor up
-			{
-				if (yScroll == 0) return; // we are at the very top of the screen & the file, we can't move further up
-
-				yScroll--;
-
-			}
-			else cursors[0].controlling.Y--; // otherwise, we can just move the cursor up visually
-
-			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineVisualMaxIdx);
-
-
+			cursors[0].controlling.DisplayY--; // EditingIndex handles the actual logic for moving cursor position within file
+			
 			return;
 		}
-		
+
 		if (key == CursesKey.DOWN)
 		{
-			// autoscroll if down arrow pressed & we are at the bottom of the screen and not at the end of the file
-
-			bool endOfFileVisible = currLines.Count-yScroll <= HeightBound;
-
-			if ((cursors[0].controlling.Y+1) == HeightBound) // we are at the bottom of the screen, we must autoscroll
-			{
-				if (endOfFileVisible) return; // we can't go further down
-
-				yScroll++;
-			}
-			else if ((cursors[0].controlling.Y+yScroll) != currLines.Count-1) cursors[0].controlling.Y++; // otherwise, we can freely move down if we are not on the last line
+			cursors[0].controlling.DisplayY++; // EditingIndex handles the actual logic for moving cursor position within file
 			
-			cursors[0].controlling.X = Math.Min(cursors[0].controlling.X, CurrentLineVisualMaxIdx);
-
 			return;
 		}
 
 		if (key == CursesKey.LEFT)
 		{
-			if (cursors[0].controlling.X == 0)
-			{
-				if (cursors[0].controlling.Y == 0) // cursor is at top of screen, try autoscrolling
-				{
-					if (yScroll == 0) return;  // at first line in file, cannot move more left
-
-					yScroll--; // use yScroll to decrement cursor line index
-				}
-				else cursors[0].controlling.Y--; // else move cursor visually
-
-				cursors[0].controlling.X = CurrentLineVisualMaxIdx;
-
-				return;
-			}
-
-			cursors[0].controlling.X--;
+			cursors[0].controlling.DisplayX--; // EditingIndex handles the actual logic for moving cursor position within file
 			
 			return;
 		}
 
 		if (key == CursesKey.RIGHT)
 		{
-			if (cursors[0].controlling.X == CurrentLineVisualMaxIdx)
-			{
-				if (cursors[0].controlling.Y+yScroll == currLines.Count-1) return; // last line in file, cannot move further
-
-				if ((cursors[0].controlling.Y+1) == HeightBound) yScroll++; // autoscroll if at bottom of screen
-				else cursors[0].controlling.Y++; // else move cursor visually
-				
-				cursors[0].controlling.X = 0;
-
-				return;
-			}
-
-			cursors[0].controlling.X++;
+			cursors[0].controlling.DisplayX++; // EditingIndex handles the actual logic for moving cursor position within file
 			
 			return;
 		}
@@ -376,61 +298,51 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (redos.Count != 0) redos.Clear();
 
-		int realCursorYIndex = cursors[0].controlling.Y+yScroll;
-		int realCursorXIndex = cursors[0].controlling.X; // TODO: add xscroll
-
 		if (key == CursesKey.BACKSPACE)
 		{
-			if (realCursorXIndex == 0)
+			if (cursors[0].controlling.RealXIndex == 0)
 			{
-				if (realCursorYIndex == 0) return;
+				if (cursors[0].controlling.RealYIndex == 0) return;
 				
-				bool endOfFileVisible = currLines.Count-yScroll <= HeightBound;
+				cursors[0].controlling.DisplayX--;
 
-				SendKey(CursesKey.LEFT);
-
-				// SendKey(LEFT) changes cursor position, so we need to update these values
-				realCursorYIndex = cursors[0].controlling.Y+yScroll;
-
-				currLines[realCursorYIndex] = currLines[realCursorYIndex]+currLines[realCursorYIndex+1];
-				currLines.RemoveAt(realCursorYIndex+1);
+				currLines[cursors[0].controlling.RealYIndex]+=currLines[cursors[0].controlling.RealYIndex+1];
+				currLines.RemoveAt(cursors[0].controlling.RealYIndex+1);
 
 				PushChange();
 
-				if (endOfFileVisible && yScroll > 0) yScroll--;
+				cursors[0].controlling.DisplayY+=0; // update YScroll
 
 				return;
 			}
 
-			SendKey(CursesKey.LEFT);
+			cursors[0].controlling.DisplayX--;
 
-			// SendKey(LEFT) changes cursor position, so we need to update these values
-			realCursorYIndex = cursors[0].controlling.Y+yScroll;
-			realCursorXIndex = cursors[0].controlling.X;
+			currLines[cursors[0].controlling.RealYIndex] = currLines[cursors[0].controlling.RealYIndex].Remove(cursors[0].controlling.RealXIndex, 1);
 
-			currLines[realCursorYIndex] = currLines[realCursorYIndex].Remove(realCursorXIndex, 1);
+			cursors[0].controlling.DisplayY+=0; // update YScroll
 
 			return;
 		}
 
 		if (key == '\n')
 		{
-			string slicedText = currLines[realCursorYIndex][realCursorXIndex..];
-			string leftText = currLines[realCursorYIndex][..realCursorXIndex];
+			string slicedText = currLines[cursors[0].controlling.RealYIndex][cursors[0].controlling.RealXIndex..];
+			string leftText = currLines[cursors[0].controlling.RealYIndex][..cursors[0].controlling.RealXIndex];
 
-			currLines[realCursorYIndex] = leftText;
+			currLines[cursors[0].controlling.RealYIndex] = leftText;
 
-			currLines.Insert(realCursorYIndex+1, slicedText);
+			currLines.Insert(cursors[0].controlling.RealYIndex+1, slicedText);
 			
 			SendKey(CursesKey.DOWN);
-			cursors[0].controlling.X = 0;
+			cursors[0].controlling.RealXIndex = 0;
 
 			PushChange();
 
 			return;
 		}
 
-		currLines[realCursorYIndex] = currLines[realCursorYIndex].Insert(cursors[0].controlling.X, char.ConvertFromUtf32(key));
+		currLines[cursors[0].controlling.RealYIndex] = currLines[cursors[0].controlling.RealYIndex].Insert(cursors[0].controlling.RealXIndex, char.ConvertFromUtf32(key));
 
 		if ((DateTime.Now.Second - secSinceLastChange) >= 20) PushChange();
 
@@ -506,13 +418,16 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 	public void ChangeTo(FileInfo file)
 	{
+		editing = false;
+
 		currentFile = file;
 		LoadFileIntoCurrLines();
 
-		yScroll = 0;
+		YScroll = 0;
+		XScroll = 0;
 
 		cursors.Clear();
-		cursors.Add((new EditingIndex(true), new(false)));
+		cursors.Add((new(true, this), new(false, this)));
 
 		undos.Clear();
 		undos.Add(([..currLines], cursors[0]));
