@@ -101,6 +101,12 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 		{
 			if (RealYIndex == 0)
 			{
+				if (!IsVisible())
+				{
+					UpdateXScroll();
+					UpdateYScroll();
+				}
+
 				return;
 			}
 
@@ -121,7 +127,6 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 	{
 		if (RealYIndex + 1 == parentFileView.CurrLines.Count) // go to end of line
 		{
-
 			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
 
 			UpdateXScroll();
@@ -148,6 +153,11 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 
 			UpdateXScroll();
 
+			if (!IsVisible())
+			{
+				UpdateYScroll();
+			}
+
 			return;
 		}
 
@@ -164,7 +174,7 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 
 	public void UpdateXScroll()
 	{
-		if (DisplayX >= parentFileView.MaxContentDisplayLength)
+		if (DisplayX > parentFileView.MaxContentDisplayLength)
 		{
 			parentFileView.XScroll += DisplayX-parentFileView.MaxContentDisplayLength;
 			return;
@@ -186,11 +196,22 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 			return;
 		}
 
-		if (DisplayY <= 0)
+		if (DisplayY < 0)
 		{
-			parentFileView.YScroll = Math.Max(0, parentFileView.YScroll + DisplayY - 1);
+			parentFileView.YScroll = Math.Max(0, parentFileView.YScroll + DisplayY);
 			return;
 		}
+	}
+
+	public bool IsVisible()
+	{
+		return IsVisible(DisplayX, DisplayY, parentFileView);
+	}
+
+	public static bool IsVisible(int displayX, int displayY, FileView parentFileView)
+	{
+		return displayY >= 0 && displayY <= parentFileView.MaxContentDisplayHeight && displayX >= 0 && displayX <= parentFileView.MaxContentDisplayLength;
+
 	}
 
 

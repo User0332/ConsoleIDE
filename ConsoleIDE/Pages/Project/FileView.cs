@@ -29,7 +29,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	int LongestLineLength => CurrLines.Max(line => line.Length);
 	readonly int FilePrefixHeight = 3;
 	public int NumberOfLines => CurrLines.Count;
-	public int MaxContentDisplayLength => WidthBound-LinePrefixLength-viewPos.X;
+	public int MaxContentDisplayLength => WidthBound-LinePrefixLength-viewPos.X-1;
 	public int MaxContentDisplayHeight => HeightBound-FilePrefixHeight-viewPos.Y-1;
 
 	public void Render()
@@ -76,12 +76,15 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	{
 		if (!cursorPair.notControlling.Enabled)
 		{
-			Utils.MoveChangeAttr(
-				cursorPair.controlling.DisplayY+viewPos.Y+FilePrefixHeight,
-				cursorPair.controlling.DisplayX+viewPos.X+LongestLineNoLength,
-				1,
-				CursesAttribute.REVERSE
-			);
+			if (cursorPair.controlling.IsVisible())
+			{
+				Utils.MoveChangeAttr(
+					cursorPair.controlling.DisplayY + viewPos.Y + FilePrefixHeight,
+					cursorPair.controlling.DisplayX + viewPos.X + LongestLineNoLength,
+					1,
+					CursesAttribute.REVERSE
+				);
+			}
 
 			return;
 		}
@@ -102,28 +105,36 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		for (int i = begin.RealYIndex; i < end.RealYIndex; i++)
 		{
+			if (EditingIndex.IsVisible(i + 3, 0, this))
+			{
+				Utils.MoveChangeAttr(
+					i + 3,
+					viewPos.X + LongestLineNoLength,
+					MaxContentDisplayLength,
+					CursesAttribute.REVERSE
+				);
+			}
+		}
+
+		if (end.IsVisible())
+		{
 			Utils.MoveChangeAttr(
-				i+3,
-				viewPos.X+LongestLineNoLength,
-				CurrLines[i+YScroll].Length,
+				end.DisplayY + viewPos.Y + FilePrefixHeight,
+				end.DisplayX + viewPos.X + LongestLineNoLength,
+				CurrLines[end.RealYIndex][..end.RealXIndex].Length,
 				CursesAttribute.REVERSE
 			);
 		}
 
-
-		Utils.MoveChangeAttr(
-			end.DisplayY+viewPos.Y+FilePrefixHeight,
-			end.DisplayX+viewPos.X+LongestLineNoLength,
-			CurrLines[end.RealYIndex][..end.RealXIndex].Length,
-			CursesAttribute.REVERSE
-		);
-
-		Utils.MoveChangeAttr(
-			begin.DisplayY+viewPos.Y+FilePrefixHeight,
-			end.DisplayX+viewPos.X+LongestLineNoLength,
-			CurrLines[begin.RealYIndex][begin.RealXIndex..].Length,
-			CursesAttribute.REVERSE
-		);
+		if (begin.IsVisible())
+		{
+			Utils.MoveChangeAttr(
+				begin.DisplayY + viewPos.Y + FilePrefixHeight,
+				begin.DisplayX + viewPos.X + LongestLineNoLength,
+				CurrLines[begin.RealYIndex][begin.RealXIndex..].Length,
+				CursesAttribute.REVERSE
+			);
+		}
 	}
 
 	void DisplayFileContents(Coordinate pos)
@@ -221,7 +232,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 					var displayText = segment.Text.Replace("\t", "    ");
 
-					int excessLength = (displayText.Length + currX) - MaxContentDisplayLength;
+					int excessLength = (displayText.Length + currX) - MaxContentDisplayLength - 1;
 
 					if (excessLength > 0)
 					{
