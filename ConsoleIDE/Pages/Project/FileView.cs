@@ -173,17 +173,17 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 			int searchX = 0;
 
-			int startAtWithinSegment = 0;
+			int charsToDisplayFromFirstSegment = 0;
 			int firstSegmentIndex = -1;
 
 			for (int j = 0; j < annotatedLines[i].Length; j++)
 			{
 				searchX += annotatedLines[i][j].Text.Replace("\t", "    ").Length;
 
-				if (searchX >= XScroll)
+				if (searchX > XScroll)
 				{
 					firstSegmentIndex = j;
-					startAtWithinSegment = searchX - XScroll;
+					charsToDisplayFromFirstSegment = searchX - XScroll;
 					break;
 				}
 			}
@@ -194,15 +194,16 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 				continue;
 			}
 
-			if (XScroll < startAtWithinSegment) startAtWithinSegment = XScroll;
-
 			// display first annotated segment
 
 			var firstSegment = annotatedLines[i][firstSegmentIndex];
 
 			var firstColoredAttr = Utils.COLOR_PAIR(firstSegment.ColorPairNumber);
 
-			var firstDisplayText = firstSegment.Text.Replace("\t", "    ")[startAtWithinSegment..];
+			var firstDisplayTextUnsliced = firstSegment.Text.Replace("\t", "    ");
+
+			var start = firstDisplayTextUnsliced.Length - charsToDisplayFromFirstSegment;
+			var firstDisplayText = firstDisplayTextUnsliced[start..Math.Min(start+MaxContentDisplayLength, firstDisplayTextUnsliced.Length)];
 
 			NCurses.AttributeOn(firstColoredAttr);
 			AddStr(pos.AddX(currX), firstDisplayText);
@@ -224,7 +225,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 					if (excessLength > 0)
 					{
-						displayText = displayText[..(displayText.Length - excessLength)];
+						displayText = displayText[..(displayText.Length - excessLength + 1)];
 					}
 
 					NCurses.AttributeOn(coloredAttr);
@@ -335,6 +336,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 				cursors[0].controlling.DecrementLine();
 				cursors[0].controlling.RealXIndex = CurrentLineLength;
+				cursors[0].controlling.UpdateXScroll();
 
 				CurrLines[cursors[0].controlling.RealYIndex]+=CurrLines[cursors[0].controlling.RealYIndex+1];
 				CurrLines.RemoveAt(cursors[0].controlling.RealYIndex+1);
@@ -365,6 +367,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			cursors[0].controlling.IncrementLine();
 			
 			cursors[0].controlling.RealXIndex = 0;
+			cursors[0].controlling.UpdateXScroll();
 
 			PushChange();
 

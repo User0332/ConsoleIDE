@@ -106,7 +106,8 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 
 			RealYIndex--;
 			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
-			parentFileView.XScroll = Math.Max(0, RealXIndex - parentFileView.MaxContentDisplayLength);
+
+			UpdateXScroll();
 
 			return;
 		}
@@ -122,7 +123,8 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 		{
 
 			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
-			parentFileView.XScroll = Math.Max(0, RealXIndex - parentFileView.MaxContentDisplayLength);
+
+			UpdateXScroll();
 
 			return;
 		}
@@ -132,6 +134,7 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 		if (RealXIndex > parentFileView.CurrLines[RealYIndex].Length)
 		{
 			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+			UpdateXScroll();
 		}
 
 		UpdateYScroll();
@@ -142,7 +145,8 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 		if (RealYIndex == 0) // go to start of line
 		{
 			RealXIndex = 0;
-			parentFileView.XScroll = 0;
+
+			UpdateXScroll();
 
 			return;
 		}
@@ -152,6 +156,7 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 		if (RealXIndex > parentFileView.CurrLines[RealYIndex].Length)
 		{
 			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+			UpdateXScroll();
 		}
 
 		UpdateYScroll();
@@ -167,11 +172,8 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 
 		if (DisplayX <= 0)
 		{
-			Console.Error.WriteLine($"DisplayX (before): {DisplayX}");
-
 			parentFileView.XScroll = Math.Max(0, parentFileView.XScroll + DisplayX - 1);
 
-			Console.Error.WriteLine($"DisplayX (after change): {DisplayX}");
 			return;
 		}
 	}
