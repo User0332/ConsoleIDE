@@ -38,9 +38,9 @@ public class SelectFolderView(ScreenReference screen) : IView // TODO: allow sel
 		}
 
 		ClickDelegator.Register(
-			new TextButton(
+			new PureTextButton(
 				new(0, 0),
-				$"Select Current Folder ({Directory.GetCurrentDirectory()})",
+				$"[Select Current Folder ({Directory.GetCurrentDirectory()})]",
 				(mousePos) => {
 					ViewDelegator.Push(new ProjectView(screen, Directory.GetCurrentDirectory()));
 				}

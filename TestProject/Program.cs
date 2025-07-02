@@ -10,7 +10,7 @@ public class Program
 	{
 		Console.WriteLine("Hello, World!");
 
-		Method();
+		Program.Method();
 
 		return 0;
 	}

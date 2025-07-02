@@ -13,44 +13,24 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	readonly Theme currentTheme = ThemeLoader.LoadThemeFromProjectPathOrDefault(projectDir);
 	readonly SourceFileAnalyzer? sourceFileAnalyzer = File.Exists($"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj") ? new($"{projectDir}/{new DirectoryInfo(projectDir).Name}.csproj") : null;
 	FileInfo? currentFile;
-	List<string> currLines = [];
 	bool editing = false;
 	bool saved = true;
 	int secSinceLastChange = DateTime.Now.Second;
+	public List<string> CurrLines = [];
 	public int YScroll;
 	public int XScroll;
-	public int MaxYScroll => NumberOfLines-HeightBound; // TODO: fix, this isn't actually heightbound (its same semantics as widthbound vs maxcontentdisplaylength)
+	public int MaxYScroll => NumberOfLines-MaxContentDisplayHeight;
 	public int MaxXScroll => LongestLineLength-MaxContentDisplayLength;
 	public readonly int WidthBound = widthBound;
-	public readonly int HeightBound = Utils.GetWindowHeight(GlobalScreen.Screen)-3; // todo: paramaterize
-	public int CurrentLineLength => currLines[cursors[0].controlling.RealYIndex].Length;
+	public readonly int HeightBound = Utils.GetWindowHeight(GlobalScreen.Screen); // todo: paramaterize
+	public int CurrentLineLength => CurrLines[cursors[0].controlling.RealYIndex].Length;
 	int LongestLineNoLength => NumberOfLines.ToString().Length;
 	int LinePrefixLength => LongestLineNoLength+1; // longest line no + one space for extra padding
-	int LongestLineLength => currLines.Max(line => line.Length);
+	int LongestLineLength => CurrLines.Max(line => line.Length);
 	readonly int FilePrefixHeight = 3;
-	public int NumberOfLines => currLines.Count;
-	public int MaxContentDisplayLength => WidthBound-LinePrefixLength-viewPos.X-1;
-	public int MaxContentDisplayHeight => HeightBound-FilePrefixHeight-viewPos.Y;
-
-	int GetEditingDisplayXIndex(EditingIndex cursor)
-	{
-		string currLine = currLines[cursor.RealYIndex];
-
-		int displayIndex = 0;
-
-		for (int i = 0; i < cursor.RealXIndex; i++)
-		{
-			if (currLine[i] == '\t')
-			{
-				displayIndex+=4; // tab_size=4
-				continue;
-			}
-
-			displayIndex+=1;
-		}
-
-		return displayIndex+1-XScroll; // TODO: figure out why this +1 is needed (because of after last idx maybe?)
-	}
+	public int NumberOfLines => CurrLines.Count;
+	public int MaxContentDisplayLength => WidthBound-LinePrefixLength-viewPos.X;
+	public int MaxContentDisplayHeight => HeightBound-FilePrefixHeight-viewPos.Y-1;
 
 	public void Render()
 	{
@@ -79,7 +59,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (!editing) LoadFileIntoCurrLines(); // if we're just viewing, update the file contents on each re-render
 
-		DisplayFileContents(viewPos.AddY(3));
+		DisplayFileContents(viewPos.AddY(FilePrefixHeight));
 
 		if (editing)
 		{
@@ -97,8 +77,8 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		if (!cursorPair.notControlling.Enabled)
 		{
 			Utils.MoveChangeAttr(
-				cursorPair.controlling.DisplayY+3,
-				GetEditingDisplayXIndex(cursorPair.controlling)+viewPos.X+LongestLineNoLength,
+				cursorPair.controlling.DisplayY+viewPos.Y+FilePrefixHeight,
+				cursorPair.controlling.DisplayX+viewPos.X+LongestLineNoLength,
 				1,
 				CursesAttribute.REVERSE
 			);
@@ -125,23 +105,23 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			Utils.MoveChangeAttr(
 				i+3,
 				viewPos.X+LongestLineNoLength,
-				currLines[i+YScroll].Length,
+				CurrLines[i+YScroll].Length,
 				CursesAttribute.REVERSE
 			);
 		}
 
 
 		Utils.MoveChangeAttr(
-			end.DisplayY+3,
-			GetEditingDisplayXIndex(end)+viewPos.X+LongestLineNoLength,
-			currLines[end.RealYIndex][..end.RealXIndex].Length,
+			end.DisplayY+viewPos.Y+FilePrefixHeight,
+			end.DisplayX+viewPos.X+LongestLineNoLength,
+			CurrLines[end.RealYIndex][..end.RealXIndex].Length,
 			CursesAttribute.REVERSE
 		);
 
 		Utils.MoveChangeAttr(
-			begin.DisplayY+3,
-			GetEditingDisplayXIndex(begin)+viewPos.X+LongestLineNoLength,
-			currLines[begin.RealYIndex][begin.RealXIndex..].Length,
+			begin.DisplayY+viewPos.Y+FilePrefixHeight,
+			end.DisplayX+viewPos.X+LongestLineNoLength,
+			CurrLines[begin.RealYIndex][begin.RealXIndex..].Length,
 			CursesAttribute.REVERSE
 		);
 	}
@@ -159,12 +139,10 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 				NCurses.AttributeOff(Utils.COLOR_PAIR(1));
 				// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
-				string tabConverted = currLines[i].Replace("\t", "    ");
+				string tabConverted = CurrLines[i].Replace("\t", "    ");
 
 				if (XScroll >= tabConverted.Length) continue; // no need to display anything, line is not visible
 				
-
-
 				string toDisplay = tabConverted[XScroll..Math.Min(tabConverted.Length, XScroll+MaxContentDisplayLength)];
 
 				AddStr(pos.AddX(LinePrefixLength), toDisplay);
@@ -177,7 +155,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		// TODO: fix xScroll for annotated segments
 		var annotatedLines = sourceFileAnalyzer.GetAnalyzedLinesAsSourceSegments(
-			currentFile.FullName, currLines
+			currentFile.FullName, CurrLines
 		);
 
 		for (int i = YScroll; i < annotatedLines.Length; i++)
@@ -190,24 +168,75 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 			// Utils.MoveChangeAttr(pos.Y, pos.X, lineNo.Length, CursesAttribute.NORMAL, 1);
 
 			int currX = LinePrefixLength;
-			int j = 0;
 
-			while (j < annotatedLines[i].Length)
+			// find the first segment that should be displayed
+
+			int searchX = 0;
+
+			int startAtWithinSegment = 0;
+			int firstSegmentIndex = -1;
+
+			for (int j = 0; j < annotatedLines[i].Length; j++)
 			{
-				var segment = annotatedLines[i][j];
+				searchX += annotatedLines[i][j].Text.Replace("\t", "    ").Length;
 
-				var coloredAttr = Utils.COLOR_PAIR(segment.ColorPairNumber);
-
-				var displayText = segment.Text.Replace("\t", "    ");
-
-				NCurses.AttributeOn(coloredAttr);
-				AddStr(pos.AddX(currX), displayText);
-				NCurses.AttributeOff(coloredAttr);
-
-				currX+=displayText.Length;
-				j++;
+				if (searchX >= XScroll)
+				{
+					firstSegmentIndex = j;
+					startAtWithinSegment = searchX - XScroll;
+					break;
+				}
 			}
-			
+
+			if (firstSegmentIndex == -1)
+			{
+				pos = pos.AddY(1);
+				continue;
+			}
+
+			if (XScroll < startAtWithinSegment) startAtWithinSegment = XScroll;
+
+			// display first annotated segment
+
+			var firstSegment = annotatedLines[i][firstSegmentIndex];
+
+			var firstColoredAttr = Utils.COLOR_PAIR(firstSegment.ColorPairNumber);
+
+			var firstDisplayText = firstSegment.Text.Replace("\t", "    ")[startAtWithinSegment..];
+
+			NCurses.AttributeOn(firstColoredAttr);
+			AddStr(pos.AddX(currX), firstDisplayText);
+			NCurses.AttributeOff(firstColoredAttr);
+
+			currX += firstDisplayText.Length;
+
+			if (currX < MaxContentDisplayLength)
+			{
+				for (int j = firstSegmentIndex + 1; j < annotatedLines[i].Length; j++)
+				{
+					var segment = annotatedLines[i][j];
+
+					var coloredAttr = Utils.COLOR_PAIR(segment.ColorPairNumber);
+
+					var displayText = segment.Text.Replace("\t", "    ");
+
+					int excessLength = (displayText.Length + currX) - MaxContentDisplayLength;
+
+					if (excessLength > 0)
+					{
+						displayText = displayText[..(displayText.Length - excessLength)];
+					}
+
+					NCurses.AttributeOn(coloredAttr);
+					AddStr(pos.AddX(currX), displayText);
+					NCurses.AttributeOff(coloredAttr);
+
+					if (excessLength > 0) break;
+
+					currX += displayText.Length;
+				}
+			}
+		
 			pos = pos.AddY(1);
 		}
 	}
@@ -247,7 +276,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 			PushChange();
 			
-			File.WriteAllLines(currentFile.FullName, [.. currLines]);
+			File.WriteAllLines(currentFile.FullName, [.. CurrLines]);
 			return;
 		}
 
@@ -256,28 +285,28 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (key == CursesKey.UP)
 		{
-			cursors[0].controlling.DisplayY--; // EditingIndex handles the actual logic for moving cursor position within file
+			cursors[0].controlling.DecrementLine();
 			
 			return;
 		}
 
 		if (key == CursesKey.DOWN)
 		{
-			cursors[0].controlling.DisplayY++; // EditingIndex handles the actual logic for moving cursor position within file
+			cursors[0].controlling.IncrementLine();
 			
 			return;
 		}
 
 		if (key == CursesKey.LEFT)
 		{
-			cursors[0].controlling.DisplayX--; // EditingIndex handles the actual logic for moving cursor position within file
+			cursors[0].controlling.DecrementChar();
 			
 			return;
 		}
 
 		if (key == CursesKey.RIGHT)
 		{
-			cursors[0].controlling.DisplayX++; // EditingIndex handles the actual logic for moving cursor position within file
+			cursors[0].controlling.IncrementChar();
 			
 			return;
 		}
@@ -300,54 +329,53 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (key == CursesKey.BACKSPACE)
 		{
-			if (cursors[0].controlling.RealXIndex == 0)
+			if (cursors[0].controlling.RealXIndex == 0) // delete the line
 			{
 				if (cursors[0].controlling.RealYIndex == 0) return;
-				
-				cursors[0].controlling.DisplayX--;
 
-				currLines[cursors[0].controlling.RealYIndex]+=currLines[cursors[0].controlling.RealYIndex+1];
-				currLines.RemoveAt(cursors[0].controlling.RealYIndex+1);
+				cursors[0].controlling.DecrementLine();
+				cursors[0].controlling.RealXIndex = CurrentLineLength;
+
+				CurrLines[cursors[0].controlling.RealYIndex]+=CurrLines[cursors[0].controlling.RealYIndex+1];
+				CurrLines.RemoveAt(cursors[0].controlling.RealYIndex+1);
 
 				PushChange();
-
-				cursors[0].controlling.DisplayY+=0; // update YScroll
 
 				return;
 			}
 
-			cursors[0].controlling.DisplayX--;
+			cursors[0].controlling.DecrementChar();
 
-			currLines[cursors[0].controlling.RealYIndex] = currLines[cursors[0].controlling.RealYIndex].Remove(cursors[0].controlling.RealXIndex, 1);
-
-			cursors[0].controlling.DisplayY+=0; // update YScroll
-
-			return;
-		}
-
-		if (key == '\n')
-		{
-			string slicedText = currLines[cursors[0].controlling.RealYIndex][cursors[0].controlling.RealXIndex..];
-			string leftText = currLines[cursors[0].controlling.RealYIndex][..cursors[0].controlling.RealXIndex];
-
-			currLines[cursors[0].controlling.RealYIndex] = leftText;
-
-			currLines.Insert(cursors[0].controlling.RealYIndex+1, slicedText);
-			
-			cursors[0].controlling.DisplayX++;
-			cursors[0].controlling.RealXIndex = 0;
-
-			cursors[0].controlling.DisplayX+=0; // update XScroll
-			
+			CurrLines[cursors[0].controlling.RealYIndex] = CurrLines[cursors[0].controlling.RealYIndex].Remove(cursors[0].controlling.RealXIndex, 1);
 
 			PushChange();
 
 			return;
 		}
 
-		currLines[cursors[0].controlling.RealYIndex] = currLines[cursors[0].controlling.RealYIndex].Insert(cursors[0].controlling.RealXIndex, char.ConvertFromUtf32(key));
+		if (key == '\n')
+		{
+			string slicedText = CurrLines[cursors[0].controlling.RealYIndex][cursors[0].controlling.RealXIndex..];
+			string leftText = CurrLines[cursors[0].controlling.RealYIndex][..cursors[0].controlling.RealXIndex];
 
-		cursors[0].controlling.DisplayX++;
+			CurrLines[cursors[0].controlling.RealYIndex] = leftText;
+
+			CurrLines.Insert(cursors[0].controlling.RealYIndex+1, slicedText);
+
+			cursors[0].controlling.IncrementLine();
+			
+			cursors[0].controlling.RealXIndex = 0;
+
+			PushChange();
+
+			return;
+		}
+
+		var charToAdd = char.ConvertFromUtf32(key);
+
+		CurrLines[cursors[0].controlling.RealYIndex] = CurrLines[cursors[0].controlling.RealYIndex].Insert(cursors[0].controlling.RealXIndex, charToAdd);
+		
+		cursors[0].controlling.IncrementChar();
 
 		if ((DateTime.Now.Second - secSinceLastChange) >= 20) PushChange();
 	}
@@ -358,18 +386,18 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		if (lines.Length == 0)
 		{
-			currLines = [""];
+			CurrLines = [""];
 			return;
 		}
 
-		currLines = [..lines];
+		CurrLines = [..lines];
 	}
 
 	public void PushChange()
 	{
-		if (!undos[^1].lines.SequenceEqual(currLines)) // has a change been made?
+		if (!undos[^1].lines.SequenceEqual(CurrLines)) // has a change been made?
 		{
-			undos.Add(([..currLines], cursors[0]));
+			undos.Add(([..CurrLines], cursors[0]));
 
 			if (undos.Count > 30)
 			{
@@ -386,12 +414,12 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		saved = false;
 
-		redos.Add(([..currLines], cursors[0]));
+		redos.Add(([..CurrLines], cursors[0]));
 
 		cursors.Clear();
 		cursors.Add(new());
 
-		(currLines, cursors[0]) = undos[^1];
+		(CurrLines, cursors[0]) = undos[^1];
 
 		if (undos.Count == 1) return;
 
@@ -404,12 +432,12 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 
 		saved = false;
 
-		undos.Add(([..currLines], cursors[0]));
+		undos.Add(([..CurrLines], cursors[0]));
 		
 		cursors.Clear();
 		cursors.Add(new());
 
-		(currLines, cursors[0]) = redos[^1];
+		(CurrLines, cursors[0]) = redos[^1];
 
 		redos.RemoveAt(redos.Count-1);		
 	}
@@ -422,6 +450,7 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 	public void ChangeTo(FileInfo file)
 	{
 		editing = false;
+		saved = true;
 
 		currentFile = file;
 		LoadFileIntoCurrLines();
@@ -432,8 +461,11 @@ public class FileView(Coordinate pos, int widthBound, string projectDir)
 		cursors.Clear();
 		cursors.Add((new(true, this), new(false, this)));
 
+		cursors[0].controlling.RealXIndex = 0;
+		cursors[0].controlling.RealYIndex = 0;
+
 		undos.Clear();
-		undos.Add(([..currLines], cursors[0]));
+		undos.Add(([..CurrLines], cursors[0]));
 	}
 
 	void AddStr(Coordinate pos, string message)

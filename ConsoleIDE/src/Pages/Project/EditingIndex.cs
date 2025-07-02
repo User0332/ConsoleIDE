@@ -10,144 +10,189 @@ class EditingIndex(bool enabled, FileView parent) // TODO: make this only for pr
 	public readonly bool Enabled = enabled;
 	public readonly FileView parentFileView = parent;
 
-	public int RealXIndex;
+	private int _displayX;
+	private int _displayY;
 
-	public int RealYIndex;
+	/// <summary>
+	/// Real x-index of the cursor in the string of the current line
+	/// </summary>
+	public int RealXIndex
+	{
+		get;
+		set;
+	}
 
+	/// <summary>
+	/// Zero-indexed line number of the cursor in the current file
+	/// </summary>
+	public int RealYIndex
+	{
+		get;
+		set;
+	}
+
+	/// <summary>
+	/// X-coordinate of a cursor on the screen
+	/// </summary>
 	public int DisplayX
 	{
-		get => RealXIndex-parentFileView.XScroll;
-
-		set
+		get
 		{
-			int change = value-DisplayX;
+			string currLine = parentFileView.CurrLines[RealYIndex];
 
-			RealXIndex+=change;
+			int displayIndex = 0;
 
-			int diff;
-
-			if ((diff = RealXIndex-parentFileView.CurrentLineLength-1) >= 0) // spill over `diff` chars into next line, we don't do >= because index should be able to be = to line length (e.g. index can be pointing past the last char)
+			for (int i = 0; i < RealXIndex; i++)
 			{
-				if (RealYIndex < parentFileView.NumberOfLines-1)
+				if (currLine[i] == '\t')
 				{
-					RealYIndex++;
-					RealXIndex = diff;
-
-					#pragma warning disable CA2011, CA2245 // assigning prop to itself warnings
-					DisplayX = DisplayX; // update XScroll & perform X bounding
-					DisplayY = DisplayY; // update YScroll & perform Y bounding
-					#pragma warning restore CA2011, CA2245
-
-					return;
+					displayIndex += 4; // tab_size=4
+					continue;
 				}
 
-				RealXIndex = parentFileView.CurrentLineLength;
-
-				return;
+				displayIndex++;
 			}
 
-			if ((diff = -RealXIndex-1) >= 0) // spill back `diff` chars into prev line
-			{
-				if (RealYIndex > 0)
-				{
-					RealYIndex--;
-					RealXIndex = parentFileView.CurrentLineLength-diff;
-
-					#pragma warning disable CA2011, CA2245 // assigning prop to itself warnings
-					DisplayX = DisplayX; // update XScroll & perform X bounding
-					DisplayY = DisplayY; // update YScroll & perform Y bounding
-					#pragma warning restore CA2011, CA2245
-
-					return;
-				}
-
-				RealXIndex = 0;
-
-				return;
-			}
-
-			if ((diff = -DisplayX) > 0)
-			{
-				parentFileView.XScroll-=diff; // we need to scroll right! (spillback handled by above if case)
-				
-				return;
-			}
-
-			if ((diff = DisplayX-(parentFileView.MaxContentDisplayLength)) > 0)
-			{
-				// this should theoretically never reach MaxXScroll because any change that would cause a spill into the next line will be handled by the index > line length check
-				parentFileView.XScroll+=diff; // we are at the far right of the screen, scroll right
-				return;
-			}
+			return displayIndex - parentFileView.XScroll + 1;
 		}
+
+		private set { _displayX = value; }
 	}
 
+	/// <summary>
+	/// Y-coordinate of a cursor on the screen
+	/// </summary>
 	public int DisplayY
 	{
-		get => RealYIndex-parentFileView.YScroll;
-
-		set
+		get
 		{
-			int change = value-DisplayY;
+			return RealYIndex - parentFileView.YScroll;
+		}
 
-			RealYIndex+=change;
+		private set { _displayY = value; }	}
 
-			int diff;
 
-			if (RealYIndex > parentFileView.NumberOfLines-1) // stop cursor from going past last line
+	public void IncrementChar()
+	{
+		string currLine = parentFileView.CurrLines[RealYIndex];
+
+		if (RealXIndex + 1 > currLine.Length) // overflow into next line
+		{
+			if (RealYIndex + 1 == parentFileView.CurrLines.Count)
 			{
-				RealYIndex = parentFileView.NumberOfLines-1;;
-				RealXIndex = parentFileView.CurrentLineLength;
-
-				#pragma warning disable CA2011, CA2245 // assigning prop to itself warnings
-				DisplayX = DisplayX; // update XScroll
-				DisplayY = DisplayY; // update YScroll
-				#pragma warning restore CA2011, CA2245
-
 				return;
 			}
 
-			if (RealYIndex < 0) // stop cursor from going past line 1
+			RealYIndex++;
+			RealXIndex = 0;
+			parentFileView.XScroll = 0;
+
+			return;
+		}
+
+		RealXIndex++;
+
+		UpdateXScroll();
+	}
+
+	public void DecrementChar()
+	{
+		if (RealXIndex == 0) // fall into prev line
+		{
+			if (RealYIndex == 0)
 			{
-				RealYIndex = 0;
-				RealXIndex = 0;
-
-				#pragma warning disable CA2011, CA2245 // assigning prop to itself warnings
-				DisplayX = DisplayX; // update XScroll
-				DisplayY = DisplayY; // update YScroll
-				#pragma warning restore CA2011, CA2245
-
 				return;
 			}
 
-			if ((diff = RealXIndex-parentFileView.CurrentLineLength) > 0) // update x to be on end of line if we move to a shorter line
-			{
-				RealXIndex-=diff;
+			RealYIndex--;
+			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+			parentFileView.XScroll = Math.Max(0, RealXIndex - parentFileView.MaxContentDisplayLength);
 
-				#pragma warning disable CA2011, CA2245 // assigning prop to itself warnings
-				DisplayX = DisplayX; // update XScroll
-				#pragma warning restore CA2011, CA2245
-			}
+			return;
+		}
 
-			if ((diff = -DisplayY) > 0)
-			{
-				parentFileView.YScroll-=diff; // we need to scroll up!
+		RealXIndex--;
 
-				return;
-			}
+		UpdateXScroll();
+	}
 
-			if ((diff = DisplayY-parentFileView.MaxContentDisplayHeight) > 0)
-			{
-				parentFileView.YScroll+=diff; // we are at the bottom, scroll down
-				
-				return;
-			}
+	public void IncrementLine()
+	{
+		if (RealYIndex + 1 == parentFileView.CurrLines.Count) // go to end of line
+		{
+
+			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+			parentFileView.XScroll = Math.Max(0, RealXIndex - parentFileView.MaxContentDisplayLength);
+
+			return;
+		}
+
+		RealYIndex++;
+
+		if (RealXIndex > parentFileView.CurrLines[RealYIndex].Length)
+		{
+			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+		}
+
+		UpdateYScroll();
+	}
+
+	public void DecrementLine()
+	{
+		if (RealYIndex == 0) // go to start of line
+		{
+			RealXIndex = 0;
+			parentFileView.XScroll = 0;
+
+			return;
+		}
+
+		RealYIndex--;
+
+		if (RealXIndex > parentFileView.CurrLines[RealYIndex].Length)
+		{
+			RealXIndex = parentFileView.CurrLines[RealYIndex].Length;
+		}
+
+		UpdateYScroll();
+	}
+
+	public void UpdateXScroll()
+	{
+		if (DisplayX >= parentFileView.MaxContentDisplayLength)
+		{
+			parentFileView.XScroll += DisplayX-parentFileView.MaxContentDisplayLength;
+			return;
+		}
+
+		if (DisplayX <= 0)
+		{
+			Console.Error.WriteLine($"DisplayX (before): {DisplayX}");
+
+			parentFileView.XScroll = Math.Max(0, parentFileView.XScroll + DisplayX - 1);
+
+			Console.Error.WriteLine($"DisplayX (after change): {DisplayX}");
+			return;
+		}
+	}
+
+	public void UpdateYScroll()
+	{
+		if (DisplayY > parentFileView.MaxContentDisplayHeight)
+		{
+			parentFileView.YScroll += DisplayY-parentFileView.MaxContentDisplayHeight;
+			return;
+		}
+
+		if (DisplayY <= 0)
+		{
+			parentFileView.YScroll = Math.Max(0, parentFileView.YScroll + DisplayY - 1);
+			return;
 		}
 	}
 
 
-
-	public static bool operator<(EditingIndex self, EditingIndex other)
+	public static bool operator <(EditingIndex self, EditingIndex other)
 	{
 		return self.DisplayY < other.DisplayY || (self.RealXIndex < other.RealXIndex) && self.DisplayY == other.DisplayY;
 	}
